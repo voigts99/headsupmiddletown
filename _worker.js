@@ -379,7 +379,7 @@ function classifyBiz(b) {
     && (!b.legalName || b.legalName.toUpperCase().includes(words[words.length - 1].toUpperCase()));
   if (store) return { kind: 'storefront', name: personLike ? null : b.name, category: cat || null, address: b.address, licensed: b.licensed, lat, lon };
   // Home-based: show the business name only if it reads like a business, never a person's name.
-  const named = b.legalName != null || ENTITY.test(b.name);
+  const named = ENTITY.test(b.name) || !personLike;
   return { kind: 'home', name: named ? b.name : null, category: cat || null, licensed: b.licensed, lat: null, lon: null };
 }
 async function businessHandler(ctx) {
