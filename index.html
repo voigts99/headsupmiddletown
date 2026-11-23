@@ -95,7 +95,7 @@ footer{color:var(--dim);font-size:12px;margin-top:22px;border-top:1px solid var(
   </div>
   <div id="mapbox">
     <div id="map" role="img" aria-label="Map of Middletown with live traffic"></div>
-    <div class="legend">Traffic<span class="dot" style="background:#2ecc71"></span>moving<span class="dot" style="background:#f1c40f"></span>slow<span class="dot" style="background:#e74c3c"></span>jammed<span class="dot" style="background:#ffb86b"></span>Frogtown Crossing<span class="dot" style="background:#5fe0b0"></span>road advisory<span class="dot" style="background:#e0b48a"></span>new storefront</div>
+    <div class="legend">Traffic<span class="dot" style="background:#2ecc71"></span>moving<span class="dot" style="background:#f1c40f"></span>slow<span class="dot" style="background:#e74c3c"></span>jammed<span class="dot" style="background:#ffb86b"></span>Frogtown Crossing<span class="dot" style="background:#5fe0b0"></span>road advisory<span class="dot" style="background:#ff9f43"></span>stores &amp; businesses<span class="dot" style="background:#b48cff"></span>new neighborhoods</div>
   </div>
 
   <section class="next" id="next" aria-label="Coming up"></section>
@@ -115,7 +115,7 @@ const fmtDay=t=>new Date(t).toLocaleDateString([],{month:'short',day:'numeric'})
 const ago=t=>{const m=Math.round((Date.now()-t)/6e4);return m<60?m+' min ago':m<1440?Math.round(m/60)+' hr ago':fmtDay(t)};
 const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 
-const data={train:null,alerts:null,roads:null,business:null,urgent:null};
+const data={train:null,alerts:null,roads:null,business:null,urgent:null,projects:null};
 const lastVisit=store.get('hu_last',0);
 let open=null, seeAll=false, showAllPins=false;
 const dismissed=new Set(store.get('hu_dismissed',[]));
@@ -144,20 +144,23 @@ function tiles(){
   const roads=r?.items||[], closures=roads.filter(x=>x.kind==='closure'), crashes=roads.filter(x=>x.kind==='crash'), jams=roads.filter(x=>x.kind==='traffic'||x.kind==='hazard');
   const stores=(b?.items||[]).filter(x=>x.kind==='storefront'), week=stores.filter(x=>Date.now()-x.licensed<7*864e5), month=stores.filter(x=>Date.now()-x.licensed<30*864e5);
   const warn=(a?.alerts||[]);
+  const P=data.projects, proj=P?.items||[], yr=Date.now()-400*864e5;
+  const shops=proj.filter(x=>(x.kind==='shops'||x.kind==='mixed')&&(x.date||0)>yr), hoods=proj.filter(x=>x.kind==='homes'||(x.kind==='mixed'&&x.units)).sort((x,y)=>(y.units||0)-(x.units||0));
+  const homesTotal=hoods.reduce((n,x)=>n+(x.units||0),0);
   const T={
     train:t?{cls:{clear:'ok',slow:'warn',likely_blocked:'bad',closed:'bad'}[t.status]||'',v:{clear:'Clear',slow:'Slow',likely_blocked:'Likely blocked',closed:'Closed'}[t.status]||'Unknown',s:`Broad St ${t.currentSpeed} mph (normal ${t.freeFlowSpeed})`}:{v:'…'},
     traffic:r?{cls:crashes.length?'bad':jams.length?'warn':'ok',v:crashes.length?crashes.length+' crash'+(crashes.length>1?'es':''):jams.length?'Some delays':'Moving',s:crashes.length||jams.length?'Tap for where':'No reported delays'}:{v:'…'},
     weather:a?{cls:warn.length?(warn.some(x=>/Warning/.test(x.event))?'bad':'warn'):'ok',v:warn.length?warn[0].event:'No alerts',s:warn.length>1?`+${warn.length-1} more`:'National Weather Service'}:{v:'…'},
     roads:r?{cls:closures.length?'warn':'ok',v:closures.length?closures.length+' closure'+(closures.length>1?'s':''):'All open',s:'Near Middletown'}:{v:'…'},
     sky:{cls:'',v:'Coming soon',s:'Helicopters & low planes'},
-    new:b?{cls:month.length?'ok':'',v:month.length?month.length+' new spot'+(month.length>1?'s':''):'Nothing new',s:week.length?week.length+' this week':'Last 30 days'}:{v:'…'},
+    new:P?{cls:shops.length?'ok':'',v:shops.length+' stores & spots',s:homesTotal?homesTotal.toLocaleString()+' new homes planned':'In the works nearby'}:{v:'…'},
   };
   const newIn={
     train:false, traffic:crashes.some(x=>isNew(x.time)), weather:warn.some(x=>isNew(Date.parse(x.onset))),
-    roads:closures.some(x=>isNew(x.time)), sky:false, new:stores.some(x=>isNew(x.licensed))};
-  return {T,newIn,lists:{closures,crashes,jams,stores,warn}};
+    roads:closures.some(x=>isNew(x.time)), sky:false, new:proj.some(x=>isNew(x.date))||stores.some(x=>isNew(x.licensed))};
+  return {T,newIn,lists:{closures,crashes,jams,stores,warn,shops,hoods,proj}};
 }
-const LABEL={train:'Frogtown train crossing',traffic:'Traffic',weather:'Weather',roads:'Road closures',sky:'In the sky',new:'New in town'};
+const LABEL={train:'Frogtown train crossing',traffic:'Traffic',weather:'Weather',roads:'Road closures',sky:'In the sky',new:'What\'s going in'};
 function detail(key,L){
   const lim=a=>seeAll?a:a.slice(0,3), more=a=>a.length>3&&!seeAll?`<button class="link" id="seeall">See all ${a.length}</button>`:'';
   const t=data.train;
@@ -168,7 +171,17 @@ function detail(key,L){
   if(key==='weather') return L.warn.length?`<h3>Weather alerts</h3><ul>${L.warn.map(x=>`<li>${esc(x.headline||x.event)}<small>${x.ends?'Until '+esc(new Date(x.ends).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'})):''}</small></li>`).join('')}</ul><div class="src">National Weather Service</div>`:'<h3>No weather alerts</h3><ul><li>Nothing active for Middletown right now.</li></ul><div class="src">National Weather Service</div>';
   if(key==='roads') return L.closures.length?`<h3>Road closures nearby</h3><ul>${lim(L.closures).map(x=>`<li>${esc(cap(x.where))}<small>${esc(x.type)} · since ${fmtDay(x.time)} · <a href="https://deldot.gov/map/?lat=${x.lat}&lon=${x.lon}" target="_blank" rel="noopener">DelDOT map</a></small></li>`).join('')}</ul>${more(L.closures)}<div class="src">DelDOT</div>`:'<h3>No closures nearby</h3><div class="src">DelDOT</div>';
   if(key==='sky') return '<h3>Helicopters & low planes</h3><ul><li>Coming soon: a local receiver will show what\'s flying over town and why.</li></ul>';
-  if(key==='new'){const s=L.stores;return s.length?`<h3>New storefronts in 19709</h3><ul>${lim(s).map(x=>`<li>${isNew(x.licensed)?'<span class="newdot"></span>':''}${esc(x.name||cap(x.category)+' (independent)')}<small>${esc(cap(x.category))} · ${esc(x.address||'')} · licensed ${fmtDay(x.licensed)}</small></li>`).join('')}</ul>${more(s)}<div class="src">State business licenses (new or renewed). New neighborhoods and big projects coming soon.</div>`:'<h3>Nothing new yet</h3>';}
+  if(key==='new'){
+    const sum=x=>x.units?`${x.units.toLocaleString()} homes`:x.sqft?`${x.sqft.toLocaleString()} sq ft`:'';
+    const row=x=>`<li>${isNew(x.date)?'<span class="newdot"></span>':''}<b>${esc(x.title)}</b>${sum(x)?' · '+esc(sum(x)):''}<small>${esc(x.what||'')}</small><small>${esc(x.where||'')}${x.where?' · ':''}${esc(x.stage)}${x.date?' · filed '+new Date(x.date).toLocaleDateString([],{month:'short',year:'numeric'}):''} · <a href="${esc(x.link)}" target="_blank" rel="noopener">official record</a></small></li>`;
+    const sh=L.shops, ho=L.hoods;
+    let h=`<h3>Stores, restaurants &amp; businesses</h3>${sh.length?`<ul>${lim(sh).map(row).join('')}</ul>`:'<ul><li>Nothing filed in the last year.</li></ul>'}`;
+    h+=`<h3 style="margin-top:12px">New neighborhoods</h3>${ho.length?`<ul>${(seeAll?ho:ho.slice(0,3)).map(row).join('')}</ul>`:'<ul><li>None filed.</li></ul>'}`;
+    if((sh.length>3||ho.length>3)&&!seeAll) h+=`<button class="link" id="seeall">See all ${sh.length+ho.length}</button>`;
+    const st=L.stores.slice(0,3);
+    if(st.length) h+=`<div class="src" style="margin-top:10px">Recently licensed storefronts: ${st.map(x=>esc(x.name||cap(x.category))).join(' · ')}</div>`;
+    return h+'<div class="src">Sources: Delaware Office of State Planning (PLUS reviews) and New Castle County Land Use. Filed plans can change or stall.</div>';
+  }
   return '';
 }
 function renderBoard(){
@@ -212,13 +225,14 @@ function drawMap(){
   const s=data.train?.status, c=s==='likely_blocked'||s==='closed'?'#e74c3c':s==='slow'?'#f1c40f':'#ffb86b';
   L.circleMarker([39.4632,-75.7212],{radius:9,color:'#0b181d',weight:2,fillColor:c,fillOpacity:1}).addTo(layers).bindPopup('Frogtown Crossing');
   for(const r of (data.roads?.items||[])) if(r.lat!=null) L.circleMarker([r.lat,r.lon],{radius:7,color:'#0b181d',weight:2,fillColor:r.kind==='crash'?'#e74c3c':'#5fe0b0',fillOpacity:1}).addTo(layers).bindPopup(esc(cap(r.where)));
+  for(const p of (data.projects?.items||[])) if(p.lat!=null) L.circleMarker([p.lat,p.lon],{radius:7,color:'#0b181d',weight:2,fillColor:p.kind==='homes'?'#b48cff':'#ff9f43',fillOpacity:1}).addTo(layers).bindPopup(`<b>${esc(p.title)}</b><br>${esc(p.units?p.units+' homes':p.what||'')}`);
   for(const b of (data.business?.items||[])) if(b.kind==='storefront'&&b.lat!=null) L.circleMarker([b.lat,b.lon],{radius:6,color:'#0b181d',weight:2,fillColor:'#e0b48a',fillOpacity:1}).addTo(layers).bindPopup(esc(b.name||cap(b.category)));
 }
 
 // ---------- Data ----------
 function render(){renderPins();renderBoard();renderNext();drawMap();$('updated').textContent='Updated '+fmtTime(Date.now())}
 async function load(name){try{const r=await fetch('/api/'+name,{cache:'no-store'});if(r.ok)data[name]=await r.json()}catch(e){}render()}
-const every={train:240000,alerts:300000,roads:180000,business:3600000,urgent:180000};
+const every={train:240000,alerts:300000,roads:180000,business:3600000,urgent:180000,projects:3600000};
 for(const [k,ms] of Object.entries(every)){load(k);setInterval(()=>{if(!document.hidden)load(k)},ms)}
 document.addEventListener('visibilitychange',()=>{if(document.hidden)store.set('hu_last',Date.now());else{load('train');load('urgent')}});
 addEventListener('pagehide',()=>store.set('hu_last',Date.now()));

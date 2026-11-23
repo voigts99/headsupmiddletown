@@ -448,14 +448,22 @@ async function flowTile(ctx, z, x, y) {
 
 // ---------- GET /api/projects — what's being built: state PLUS reviews + New Castle County development activity ----------
 const BOX = '-75.84,39.37,-75.57,39.55'; // Middletown area
-function unitsFrom(t) { const m = String(t || '').match(/(\d[\d,]*)\s*(?:-|\s)?(?:single[- ]family|townhouse|townhome|twin|duplex|apartment|multi-?family|dwelling|residential)?\s*(units|lots|homes|dwellings|townhouses|townhomes|apartments)\b/i); return m ? +m[1].replace(/,/g, '') : null; }
-function sqftFrom(t) { const m = String(t || '').match(/(\d[\d,]{2,})\s*(?:square feet|square foot|sq\.?\s*ft|s\.\s*f\.?|sf)\b/i); return m ? +m[1].replace(/,/g, '') : null; }
+function unitsFrom(t) {
+  let total = 0;
+  for (const m of String(t || '').matchAll(/(\d[\d,]*)\s*(?:\+\/-|\+|±)?\s*(?:-?\s*lot)?\s*(?:[a-z()\-]+\s+){0,4}?(units|lots|homes|townhomes|townhouses|dwellings|apartments|duplexes)\b/gi)) {
+    const n = +m[1].replace(/,/g, ''); if (n >= 2 && n < 5000) total += n;
+  }
+  if (!total) { const m = String(t || '').match(/(\d[\d,]*)[- ]lot\b/i); if (m) total = +m[1].replace(/,/g, ''); }
+  return total || null;
+}
+function sqftFrom(t) { const m = String(t || '').match(/(\d{1,3}(?:,\d{3})+|\d{4,})\s*(?:square[- ]feet|square[- ]foot|sq\.?\s*ft|s\.\s*f\.?|sf)\b/i); return m ? +m[1].replace(/,/g, '') : null; }
 function kindOf(t, devType) {
   const x = (String(devType || '') + ' ' + t).toLowerCase();
-  if (/restaurant|retail|store|shopping|grocery|commercial|office|hotel|bank|gas station|wawa|car wash|medical|daycare|fitness|self[- ]storage|storage/.test(x)) return /residential|apartment|homes|units|lots/.test(x) ? 'mixed' : 'shops';
-  if (/warehouse|industrial|distribution|manufactur|flex/.test(x)) return 'industrial';
-  if (/subdivi|residential|homes|townhouse|apartment|units|lots|dwelling|hamlet|village/.test(x)) return 'homes';
-  if (/school|church|fire|library|park|clubhouse|civic/.test(x)) return 'community';
+  const homes = /subdivi|residential|homes|townhouse|townhome|apartment|units|lots|dwelling|hamlet|village/.test(x);
+  if (/clubhouse|school|church|fire company|vfc|public safety|library|park\b|civic|amenity/.test(x)) return 'community';
+  if (/restaurant|retail|store|shopping|grocery|commercial|office|hotel|bank|gas|convenience|car ?wash|medical|daycare|fitness|self[- ]storage|storage/.test(x)) return homes ? 'mixed' : 'shops';
+  if (/warehouse|industrial|distribution|manufactur|flex/.test(x)) return homes ? 'mixed' : 'industrial';
+  if (homes) return 'homes';
   return 'other';
 }
 const cleanTitle = t => String(t || '').replace(/\s+/g, ' ').trim().toLowerCase().replace(/(^|[\s(\-/])\S/g, m => m.toUpperCase());
@@ -495,7 +503,7 @@ async function countyProjects(ctx) {
     const a = f.attributes, c = String(a.comments || '').replace(/\s+/g, ' ').trim();
     const sentences = c.split(/(?<=\.)\s+/);
     const where = sentences[0] && /side of|corner of|feet|intersection|end of/i.test(sentences[0]) ? sentences[0].replace(/\.$/, '') : null;
-    const what = sentences.filter(x => x !== sentences[0] || !where).filter(x => !/zoning\.?$|^cd \d|hundred\.?$/i.test(x)).join(' ').trim();
+    const what = sentences.filter(x => x !== sentences[0] || !where).filter(x => !/zoning\.?$|^cd \d|hundred\.?$|^st\.?$/i.test(x)).join(' ').replace(/\s+St\.?$/, '').trim();
     const units = unitsFrom(c), sqft = sqftFrom(c);
     let pt = null; const ring = f.geometry?.rings?.[0];
     if (ring?.length) { let x = 0, y = 0; for (const p of ring) { x += p[0]; y += p[1]; } pt = [y / ring.length, x / ring.length]; }
@@ -514,6 +522,13 @@ async function projectsHandler(ctx) {
   if (a.status === 'fulfilled') items.push(...a.value); else tried.push(String(a.reason?.message || 'plus'));
   if (b.status === 'fulfilled') items.push(...b.value); else tried.push(String(b.reason?.message || 'ncc'));
   if (!items.length && tried.length) return json({ error: 'source_unavailable', tried }, 502, 60);
+  const norm = t => String(t || '').toLowerCase().replace(/'s\b/g, 's').replace(/[^a-z0-9]/g, '').replace(/subdivision|amenityspace|resubdivision/g, '');
+  const seen = new Map();
+  for (const p of items) { const k = norm(p.title); const q = seen.get(k);
+    if (!q) seen.set(k, p); else { const keep = (p.date || 0) > (q.date || 0) ? p : q, other = keep === p ? q : p;
+      for (const f of ['units', 'sqft', 'acres', 'where', 'lat', 'lon', 'what']) if (keep[f] == null || keep[f] === '') keep[f] = other[f];
+      keep.links = [keep.link, other.link]; seen.set(k, keep); } }
+  items = [...seen.values()];
   const rank = { shops: 0, mixed: 1, homes: 2, industrial: 3, community: 4, other: 5 };
   items.sort((x, y) => (y.date || 0) - (x.date || 0) || rank[x.kind] - rank[y.kind]);
   return json({ count: items.length, items: items.slice(0, 60), checked: Date.now(), tried }, 200, 3600);
