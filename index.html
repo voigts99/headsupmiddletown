@@ -47,6 +47,7 @@ h1 span{color:var(--acc)}
 #map{height:380px;background:#0e2026}
 @media(max-width:600px){#map{height:300px}}
 .leaflet-container{font:13px Inter,sans-serif}
+.leaflet-control-layers{background:#11242b;color:#e6f1f3;border:1px solid #1e3a44}
 .darktiles{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.6)}
 .maplegend{display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px 14px;font-size:13px;color:var(--dim);border-top:1px solid var(--line)}
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
@@ -102,6 +103,7 @@ footer a{color:var(--dim)}
         <span><i class="dot" style="background:var(--what)"></i>Plane</span>
         <span><i class="dot" style="background:var(--heads)"></i>Frogtown Crossing</span>
         <span><i class="dot" style="background:var(--town)"></i>Road advisory</span>
+        <span><i class="dot" style="background:#2ecc71"></i><i class="dot" style="background:#f1c40f"></i><i class="dot" style="background:#e74c3c"></i>Traffic: moving · slow · jammed</span>
         <span><i class="dot" style="background:var(--build)"></i>New business</span>
       </div>
       <div class="glance" id="glance"></div>
@@ -144,6 +146,8 @@ const map=L.map('map',{zoomControl:true,attributionControl:false}).setView(CENTE
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,className:'darktiles'}).addTo(map);
 L.circleMarker(CENTER,{radius:6,color:'#fff',weight:2,fillColor:'#fff',fillOpacity:1}).addTo(map).bindTooltip('Middletown');
 const crossing=L.circleMarker(CROSSING,{radius:9,color:'#0b181d',weight:2,fillColor:'#ffb86b',fillOpacity:1}).addTo(map).bindTooltip('Frogtown Crossing');
+const trafficLayer=L.tileLayer('/tiles/flow/{z}/{x}/{y}.png',{opacity:.85,maxZoom:18,minZoom:9,zIndex:5}).addTo(map);
+L.control.layers(null,{'Live traffic':trafficLayer},{collapsed:false,position:'topright'}).addTo(map);
 const planeLayer=L.layerGroup().addTo(map), roadLayer=L.layerGroup().addTo(map), bizLayer=L.layerGroup().addTo(map);
 const ROADCOLOR={closure:'#ff6b4a',crash:'#ff6b4a',hazard:'#ffd97a',work:'#5fe0b0',traffic:'#ffd97a',other:'#5fe0b0'};
 const ROADNAME={closure:'Road closed',crash:'Crash',hazard:'Hazard',work:'Work zone',traffic:'Traffic',other:'Advisory'};

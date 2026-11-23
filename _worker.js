@@ -430,6 +430,21 @@ async function urgentHandler(ctx) {
   return json({ count: items.length, items: items.slice(0, 8), checked: Date.now(), tried }, 200, 120);
 }
 
+
+// ---------- GET /tiles/flow/{z}/{x}/{y}.png — TomTom live traffic colors, proxied so the key stays secret ----------
+async function flowTile(ctx, z, x, y) {
+  const key = ctx.env.TOMTOM_API_KEY;
+  if (!key) return new Response('missing key', { status: 500 });
+  z = +z; x = +x; y = +y;
+  // Only the Middletown area (keeps free-tier usage low).
+  const n = 2 ** z, lon = x / n * 360 - 180, lat = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n))) * 180 / Math.PI;
+  if (z < 9 || z > 18 || lat < 39.0 || lat > 39.9 || lon < -76.3 || lon > -75.2) return new Response(null, { status: 204 });
+  const url = `https://api.tomtom.com/traffic/map/4/tile/flow/relative0/${z}/${x}/${y}.png?key=${encodeURIComponent(key)}&tileSize=256`;
+  const r = await cachedFetch(ctx, `https://cache.local/flow/${z}/${x}/${y}`, url, {}, 120);
+  if (!r.ok) return new Response(null, { status: 204 });
+  return new Response(r.body, { headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=120' } });
+}
+
 // ---------- GET /api/sources — diagnostics: what each Phase 2 upstream actually returns ----------
 async function sourcesHandler() {
   const probe = async (name, url, headers = {}) => {
@@ -465,6 +480,8 @@ export default {
     } catch (e) {
       return json({ error: 'server_error' }, 500, 5);
     }
+    const tm = pathname.match(/^\/tiles\/flow\/(\d+)\/(\d+)\/(\d+)\.png$/);
+    if (tm) { try { return await flowTile(c, tm[1], tm[2], tm[3]); } catch (e) { return new Response(null, { status: 204 }); } }
     if (pathname.startsWith('/api/')) return json({ error: 'not_found' }, 404, 60);
     return env.ASSETS.fetch(request);
   }
