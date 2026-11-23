@@ -44,6 +44,34 @@ const HELI = new Set([
 
 const COMPASS = ['N','NE','E','SE','S','SW','W','NW'];
 
+
+// OpenSky Network (free account, non-commercial). OAuth2 client credentials; token cached in memory.
+let oskyToken = null, oskyExp = 0;
+async function openskyStates(env) {
+  if (!env.OPENSKY_CLIENT_ID || !env.OPENSKY_CLIENT_SECRET) return null;
+  if (!oskyToken || Date.now() > oskyExp) {
+    const t = await fetch('https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token', {
+      method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'client_credentials', client_id: env.OPENSKY_CLIENT_ID, client_secret: env.OPENSKY_CLIENT_SECRET }),
+    });
+    if (!t.ok) throw new Error('opensky_auth_' + t.status);
+    const tj = await t.json(); oskyToken = tj.access_token; oskyExp = Date.now() + ((tj.expires_in || 1800) - 60) * 1000;
+  }
+  const r = await fetch('https://opensky-network.org/api/states/all?lamin=39.23&lomin=-76.0&lamax=39.67&lomax=-75.43&extended=1',
+    { headers: { authorization: 'Bearer ' + oskyToken } });
+  if (!r.ok) throw new Error('opensky_' + r.status);
+  const d = await r.json();
+  const R = 3440.065, toRad = x => x * Math.PI / 180;
+  const ac = (d.states || []).filter(s => s[5] != null && s[6] != null).map(s => {
+    const la1 = toRad(CENTER.lat), la2 = toRad(s[6]), dl = toRad(s[5] - CENTER.lon);
+    const dst = 2 * R * Math.asin(Math.sqrt(Math.sin((la2 - la1) / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dl / 2) ** 2));
+    const brg = (Math.atan2(Math.sin(dl) * Math.cos(la2), Math.cos(la1) * Math.sin(la2) - Math.sin(la1) * Math.cos(la2) * Math.cos(dl)) * 180 / Math.PI + 360) % 360;
+    return { hex: s[0], flight: s[1], alt_baro: s[8] ? 'ground' : (s[7] != null ? Math.round(s[7] * 3.28084) : undefined),
+      gs: s[9] != null ? s[9] * 1.94384 : undefined, track: s[10] ?? undefined, lat: s[6], lon: s[5],
+      category: s[17] === 8 ? 'A7' : undefined, dst, dir: brg };
+  }).filter(a => a.dst <= 15);
+  return { ac, now: (d.time || Date.now() / 1000) * 1000 };
+}
 async function skyHandler(ctx) {
   // Free community flight feeds, tried in order (non-commercial test phase).
   const sources = [
@@ -52,7 +80,11 @@ async function skyHandler(ctx) {
     ['adsb.lol', `https://api.adsb.lol/v2/point/${CENTER.lat}/${CENTER.lon}/15`],
   ];
   let res = null, used = null, tried = [];
-  for (const [name, url] of sources) {
+  try {
+    const o = await openskyStates(ctx.env);
+    if (o) res = new Response(JSON.stringify(o)), used = 'OpenSky Network';
+  } catch (e) { tried.push(String(e.message || e)); }
+  if (!res) for (const [name, url] of sources) {
     try {
       const r = await cachedFetch(ctx, 'https://cache.local/sky-' + name, url,
         { headers: { 'user-agent': 'HeadsUpMiddletown/0.1 (headsupmiddletown.ny4fc7cnvz.workers.dev)' } }, 15);
@@ -181,6 +213,7 @@ export default {
       if (pathname === '/api/sky') return await skyHandler(c);
       if (pathname === '/api/train') return await trainHandler(c);
       if (pathname === '/api/alerts') return await alertsHandler(c);
+      if (pathname === '/api/check') return json({ tomtom_key: !!env.TOMTOM_API_KEY, opensky_id: !!env.OPENSKY_CLIENT_ID, opensky_secret: !!env.OPENSKY_CLIENT_SECRET }, 200, 0);
     } catch (e) {
       return json({ error: 'server_error' }, 500, 5);
     }
