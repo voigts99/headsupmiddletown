@@ -4,318 +4,242 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>HeadsUp Middletown</title>
-<meta name="description" content="What was that, and what's coming in Middletown, DE: helicopters overhead, the Frogtown train crossing, DelDOT road closures, weather alerts and new businesses, live.">
+<meta name="description" content="A quick check on Middletown, DE: Frogtown train crossing, traffic, weather, road closures and what's new in town, live.">
+<meta property="og:title" content="HeadsUp Middletown">
+<meta property="og:description" content="What was that, and what's coming in Middletown, DE. A 5-second check.">
+<meta property="og:image" content="logo.webp">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{color-scheme:dark;--bg:#0b181d;--panel:#11242b;--line:#1e3a44;--ink:#e6f1f3;--dim:#93adb4;--acc:#ff6b4a;
-  --heads:#ffb86b;--what:#7cc4ff;--town:#5fe0b0;--build:#e0b48a}
+:root{color-scheme:dark;--bg:#0b181d;--panel:#11242b;--panel2:#0e2026;--line:#1e3a44;--ink:#e6f1f3;--dim:#93adb4;--acc:#ff6b4a;
+  --ok:#2ecc71;--warn:#f1c40f;--bad:#e74c3c;--idle:#5d7880}
 *{box-sizing:border-box;min-width:0}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Inter,system-ui,sans-serif;overflow-x:clip;position:relative}
-/* Town artwork behind everything; a fixed layer (works on iOS, unlike background-attachment:fixed), darkened so text stays readable. */
-body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
-  background:linear-gradient(180deg,rgba(11,24,29,.62) 0%,rgba(11,24,29,.8) 45%,rgba(11,24,29,.9) 100%),url(bg.webp) center top/cover no-repeat,var(--bg)}
-@media(max-width:700px){body::before{background:linear-gradient(180deg,rgba(11,24,29,.5) 0%,rgba(11,24,29,.8) 40%,rgba(11,24,29,.92) 100%),url(bg-mobile.webp) center top/cover no-repeat,var(--bg)}}
-.beta{backdrop-filter:blur(6px)}
-header h1,header .tag,.intro,.status,footer{text-shadow:0 1px 3px rgba(0,0,0,.9),0 0 14px rgba(0,0,0,.8)}
-header .tag,.intro,.status{color:#c3d6db}
-.chip[aria-pressed=false]{background:rgba(11,24,29,.75);backdrop-filter:blur(4px)}
-h1,h2,h3{font-family:Archivo,Inter,sans-serif;margin:0;line-height:1.1;text-wrap:balance}
-.wrap{max-width:1100px;margin:0 auto;padding:16px max(4vw,14px) 40px}
-.beta{font-size:13px;color:var(--dim);background:rgba(14,32,38,.8);border-bottom:1px solid var(--line);padding:8px max(4vw,14px);text-align:center}
-header{margin:10px 0 14px}
-h1{font-size:clamp(30px,6vw,44px);font-weight:800}
-h1 span{color:var(--acc)}
-.logo{display:block;width:min(560px,92vw);height:auto;margin:0 0 4px}
-.ticker{display:none;background:#5a1712;border-bottom:1px solid #8a2a20;color:#fff;font-size:15px;overflow:hidden;white-space:nowrap}
-.ticker.on{display:flex;align-items:center}
-.ticker .lbl{flex:none;background:#c0392b;font-weight:700;padding:9px 12px;font-family:Archivo,Inter,sans-serif;letter-spacing:.02em}
-.ticker .rail{overflow:hidden;flex:1}
-.ticker .run{display:inline-block;padding-left:100%;animation:tick 40s linear infinite}
-.ticker:hover .run,.ticker:focus-within .run{animation-play-state:paused}
-.ticker a{color:#fff;text-decoration:none;margin-right:42px}
-.ticker a:hover,.ticker a:focus{text-decoration:underline}
-.ticker a small{color:#ffcdc4;margin-left:6px}
-@keyframes tick{to{transform:translateX(-100%)}}
-@media(prefers-reduced-motion:reduce){.ticker{white-space:normal}.ticker .run{animation:none;padding-left:12px}}
-.tag{color:var(--dim);font-size:14px;margin-top:6px}
-.grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px;align-items:start}
-@media(max-width:820px){.grid{grid-template-columns:minmax(0,1fr)}}
-.mapbox{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;position:sticky;top:10px}
-@media(max-width:820px){.mapbox{position:static}}
-#map{height:380px;background:#0e2026}
-@media(max-width:600px){#map{height:300px}}
-.leaflet-container{font:13px Inter,sans-serif}
-.leaflet-control-layers{background:#11242b;color:#e6f1f3;border:1px solid #1e3a44}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-ui,sans-serif;overflow-x:clip}
+h1,h2,h3{font-family:Archivo,Inter,sans-serif;margin:0;line-height:1.15}
+a{color:inherit}
+.wrap{max-width:760px;margin:0 auto;padding:12px max(4vw,14px) 32px}
+header{display:flex;align-items:center;gap:12px;margin:6px 0 12px}
+.logo{display:block;width:min(300px,62vw);height:auto}
+.updated{margin-left:auto;text-align:right;font-size:12px;color:var(--dim)}
+button{font:inherit;color:inherit}
+button:focus-visible,a:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+
+/* Pinned announcements */
+.pins{display:grid;gap:8px;margin-bottom:12px}
+.pin{display:flex;align-items:center;gap:10px;background:#3a1410;border:1px solid #7a2a20;border-left:5px solid var(--bad);border-radius:12px;padding:10px 6px 10px 12px}
+.pin a{flex:1;text-decoration:none;display:block}
+.pin b{display:block;font-size:15px;line-height:1.3}
+.pin small{color:#ffcdc4;font-size:12px}
+.pin .x{flex:none;width:40px;height:40px;border:0;background:transparent;color:#ffcdc4;font-size:22px;cursor:pointer;border-radius:8px}
+.more{border:1px dashed #7a2a20;background:transparent;color:#ffcdc4;border-radius:10px;padding:8px;cursor:pointer;font-size:14px}
+
+/* New since last visit */
+.since{font-size:14px;color:var(--dim);margin:0 0 10px}
+.since b{color:var(--ink)}
+.newdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--acc);margin-right:6px;vertical-align:1px}
+
+/* Status board */
+.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media(max-width:560px){.board{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{position:relative;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 12px 12px 14px;cursor:pointer;min-height:92px;border-left:5px solid var(--idle)}
+.tile[aria-expanded=true]{border-color:var(--ink);border-left-color:inherit}
+.tile .k{font-size:13px;color:var(--dim)}
+.tile .v{display:block;font-family:Archivo,Inter,sans-serif;font-size:21px;font-weight:700;margin-top:2px;line-height:1.15}
+.tile .s{display:block;font-size:12px;color:var(--dim);margin-top:3px}
+.tile.ok{border-left-color:var(--ok)}.tile.warn{border-left-color:var(--warn)}.tile.bad{border-left-color:var(--bad)}
+.tile .nd{position:absolute;top:10px;right:10px;width:9px;height:9px;border-radius:50%;background:var(--acc)}
+
+/* Expanded details */
+.detail{grid-column:1/-1;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.detail h3{font-size:17px;margin-bottom:6px}
+.detail ul{list-style:none;margin:0;padding:0}
+.detail li{padding:8px 0;border-top:1px solid var(--line);font-size:15px}
+.detail li:first-child{border-top:0}
+.detail li small{display:block;color:var(--dim);font-size:12px}
+.detail .src{font-size:12px;color:var(--dim);margin-top:8px}
+.link{background:none;border:0;padding:6px 0;color:var(--acc);cursor:pointer;font-weight:600;text-decoration:underline;font-size:14px}
+
+/* Coming up + map */
+.row{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+.btn{flex:1;min-height:46px;border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:10px 14px;cursor:pointer;font-weight:600}
+.next{margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 14px}
+.next h2{font-size:14px;color:var(--dim);font-family:Inter,sans-serif;font-weight:600;margin-bottom:4px}
+.next li{display:flex;gap:12px;padding:5px 0;font-size:14px;border-top:1px dashed var(--line)}
+.next li:first-child{border-top:0}
+.next ul{list-style:none;margin:0;padding:0}
+.next b{flex:none;width:5.2em;font-family:Archivo,Inter,sans-serif}
+#mapbox{display:none;margin-top:12px;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+#mapbox.on{display:block}
+#map{height:min(60vh,440px);background:var(--panel2)}
+.legend{font-size:12px;color:var(--dim);padding:8px 12px;background:var(--panel)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin:0 4px 0 8px;vertical-align:0}
 .darktiles{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.6)}
-.maplegend{display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px 14px;font-size:13px;color:var(--dim);border-top:1px solid var(--line)}
-.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
-.chips{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 10px;scrollbar-width:none}
-.chip{flex:none;font:600 15px Inter;min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;white-space:nowrap}
-.chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-button:focus-visible,.card:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
-.intro{color:var(--dim);font-size:15px;margin:2px 0 12px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px}
-.top{display:flex;gap:10px;justify-content:space-between;align-items:baseline}
-.cat,.time{font-size:13px;color:var(--dim);white-space:nowrap}
-.card h3{font-size:19px;margin:6px 0 4px}
-.verdict{font-size:15px}
-.conf{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;margin-right:6px;vertical-align:1px}
-.c-Confirmed,.c-Identified,.c-Clear{background:#1f4d3a;color:#9ef0c4}
-.c-Likely{background:#4a3d16;color:#ffd97a}
-.c-Possible{background:#3d3416;color:#f3dd9b}
-.c-Unknown{background:#4a2420;color:#ffb3a3}
-.ev{margin:8px 0 0;padding-left:18px;font-size:14px}
-.src{color:var(--dim);font-size:13px;margin-top:6px}
-.src a{color:var(--dim)}
-.soon{border-style:dashed;color:var(--dim)}
-.status{font-size:13px;color:var(--dim);margin:0 0 10px}
-.warn{background:#3a1712;border:1px solid #6d2a20;color:#ffd2c7;border-radius:12px;padding:10px 14px;font-size:14px;margin-bottom:12px}
-footer{color:var(--dim);font-size:13px;margin-top:26px;border-top:1px solid var(--line);padding-top:14px}
-footer a{color:var(--dim)}
-.glance{border-top:1px solid var(--line);padding:12px 14px}
-.glance h2{font-size:15px;margin:0 0 8px;color:var(--dim);font-family:Inter,sans-serif;font-weight:600}
-.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.tile{background:#0e2026;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
-.tile b{display:block;font-family:Archivo,Inter,sans-serif;font-size:17px;line-height:1.2}
-.tile span{font-size:12px;color:var(--dim)}
-.next{list-style:none;margin:10px 0 0;padding:0;font-size:14px}
-.next li{display:flex;gap:10px;padding:4px 0;border-top:1px dashed var(--line)}
-.next li b{flex:none;width:5.5em;font-family:Archivo,Inter,sans-serif}
-.plane{width:22px;height:22px;display:grid;place-items:center}
-.plane svg{width:22px;height:22px}
+footer{color:var(--dim);font-size:12px;margin-top:22px;border-top:1px solid var(--line);padding-top:12px}
+.beta{font-size:12px;color:var(--dim);text-align:center;margin-top:6px}
 </style>
 </head>
 <body>
-<div class="ticker" id="ticker" role="region" aria-label="Urgent local news"><span class="lbl">ALERT</span><div class="rail"><div class="run" id="tickrun"></div></div></div>
-<div class="beta">Live test version · real data from community flight feeds, TomTom, DelDOT, the National Weather Service and Delaware Open Data · more sections coming</div>
 <div class="wrap">
   <header>
-    <h1><img class="logo" src="logo.webp" alt="HeadsUp Middletown" width="1400" height="525"></h1>
-    <div class="tag">What was that, and what's coming · Middletown, DE 19709</div>
+    <img class="logo" src="logo.webp" alt="HeadsUp Middletown" width="1400" height="525">
+    <div class="updated" id="updated">Loading…</div>
   </header>
-  <div class="grid">
-    <div class="mapbox">
-      <div id="map" role="img" aria-label="Live map of aircraft, road advisories and the Frogtown train crossing"></div>
-      <div class="maplegend">
-        <span><i class="dot" style="background:var(--acc)"></i>Helicopter</span>
-        <span><i class="dot" style="background:var(--what)"></i>Plane</span>
-        <span><i class="dot" style="background:var(--heads)"></i>Frogtown Crossing</span>
-        <span><i class="dot" style="background:var(--town)"></i>Road advisory</span>
-        <span><i class="dot" style="background:#2ecc71"></i><i class="dot" style="background:#f1c40f"></i><i class="dot" style="background:#e74c3c"></i>Traffic: moving · slow · jammed</span>
-        <span><i class="dot" style="background:var(--build)"></i>New business</span>
-      </div>
-      <div class="glance" id="glance"></div>
-    </div>
-    <div>
-      <nav class="chips" id="chips" aria-label="Sections"></nav>
-      <p class="intro" id="intro"></p>
-      <p class="status" id="status">Loading live data…</p>
-      <div id="feed"></div>
-    </div>
+
+  <section class="pins" id="pins" aria-label="Announcements"></section>
+  <p class="since" id="since"></p>
+
+  <section class="board" id="board" aria-label="Middletown right now"></section>
+
+  <div class="row">
+    <button class="btn" id="mapbtn" aria-expanded="false">Show map &amp; live traffic</button>
   </div>
+  <div id="mapbox">
+    <div id="map" role="img" aria-label="Map of Middletown with live traffic"></div>
+    <div class="legend">Traffic<span class="dot" style="background:#2ecc71"></span>moving<span class="dot" style="background:#f1c40f"></span>slow<span class="dot" style="background:#e74c3c"></span>jammed<span class="dot" style="background:#ffb86b"></span>Frogtown Crossing<span class="dot" style="background:#5fe0b0"></span>road advisory<span class="dot" style="background:#e0b48a"></span>new storefront</div>
+  </div>
+
+  <section class="next" id="next" aria-label="Coming up"></section>
+
   <footer>
-    Aircraft data: <a href="https://airplanes.live">airplanes.live</a>, <a href="https://adsb.fi">adsb.fi</a>, <a href="https://adsb.lol">adsb.lol</a> · Road speed: TomTom · Roads: <a href="https://deldot.gov/map/">DelDOT</a> · Alerts: National Weather Service · Business licenses: <a href="https://data.delaware.gov/d/5zy2-grhr">Delaware Open Data</a> · Map © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors.
-    Not an emergency service. In an emergency, call 911.
+    Sources: State Police, National Weather Service, DelDOT, TomTom, Delaware Open Data, OpenStreetMap. Not an emergency service. In an emergency, call 911.
+    <div class="beta">Live test version</div>
   </footer>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 {
-const CENTER=[39.449,-75.716], CROSSING=[39.4632,-75.7212];
-const SECS={
-  now:{name:'Right now',intro:'Everything live near Middletown, newest first.'},
-  heads:{name:'Heads up',intro:'What\'s coming: Frogtown Crossing status, road closures and weather alerts.'},
-  what:{name:'What was that?',intro:'Helicopters and low planes within about 15 miles, identified from public flight data.'},
-  town:{name:'Around town',intro:'DelDOT road closures, crashes and work zones within about 8 miles. Power, air quality and police coming next.'},
-  build:{name:'What\'s going in?',intro:'Businesses newly licensed in 19709 by the State of Delaware. Zoning applications coming next.'}
-};
-let tab=location.hash.slice(1); if(!SECS[tab])tab='now';
-const data={sky:null,train:null,alerts:null,roads:null,business:null,urgent:null,err:{}};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fmtTime=t=>new Date(t).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});
-const fmtAgo=t=>{if(!t)return'';const m=Math.round((Date.now()-t)/60000);return m<1?'just now':m<60?m+' min ago':m<1440?Math.round(m/60)+' hr ago':new Date(t).toLocaleDateString([], {month:'short',day:'numeric'})};
-const fmtDay=t=>new Date(t).toLocaleDateString([], {month:'short',day:'numeric'});
-const fmtAlt=a=>a==null?'unknown altitude':a===0?'on the ground':a.toLocaleString()+' ft';
+const fmtTime=t=>new Date(t).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+const fmtDay=t=>new Date(t).toLocaleDateString([],{month:'short',day:'numeric'});
+const ago=t=>{const m=Math.round((Date.now()-t)/6e4);return m<60?m+' min ago':m<1440?Math.round(m/60)+' hr ago':fmtDay(t)};
+const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 
-// Map
-const map=L.map('map',{zoomControl:true,attributionControl:false}).setView(CENTER,11);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,className:'darktiles'}).addTo(map);
-L.circleMarker(CENTER,{radius:6,color:'#fff',weight:2,fillColor:'#fff',fillOpacity:1}).addTo(map).bindTooltip('Middletown');
-const crossing=L.circleMarker(CROSSING,{radius:9,color:'#0b181d',weight:2,fillColor:'#ffb86b',fillOpacity:1}).addTo(map).bindTooltip('Frogtown Crossing');
-const trafficLayer=L.tileLayer('/tiles/flow/{z}/{x}/{y}.png',{opacity:.85,maxZoom:18,minZoom:9,zIndex:5}).addTo(map);
-L.control.layers(null,{'Live traffic':trafficLayer},{collapsed:false,position:'topright'}).addTo(map);
-const planeLayer=L.layerGroup().addTo(map), roadLayer=L.layerGroup().addTo(map), bizLayer=L.layerGroup().addTo(map);
-const ROADCOLOR={closure:'#ff6b4a',crash:'#ff6b4a',hazard:'#ffd97a',work:'#5fe0b0',traffic:'#ffd97a',other:'#5fe0b0'};
-const ROADNAME={closure:'Road closed',crash:'Crash',hazard:'Hazard',work:'Work zone',traffic:'Traffic',other:'Advisory'};
-const planeIcon=(a)=>L.divIcon({className:'plane',iconSize:[22,22],html:`<svg viewBox="0 0 24 24" style="transform:rotate(${a.track||0}deg)"><path fill="${a.heli?'#ff6b4a':'#7cc4ff'}" stroke="#0b181d" stroke-width="1" d="M12 2l2 7 7 3v2l-7-1-1 5 3 2v2l-4-1-4 1v-2l3-2-1-5-7 1v-2l7-3z"/></svg>`});
+const data={train:null,alerts:null,roads:null,business:null,urgent:null};
+const lastVisit=store.get('hu_last',0);
+let open=null, seeAll=false, showAllPins=false;
+const dismissed=new Set(store.get('hu_dismissed',[]));
+const isNew=t=>lastVisit&&t&&t>lastVisit;
 
-function drawMap(){
-  planeLayer.clearLayers();
-  for(const a of (data.sky?.aircraft||[])){
-    L.marker([a.lat,a.lon],{icon:planeIcon(a)}).addTo(planeLayer)
-      .bindPopup(`<b>${esc(a.heli?'Helicopter':'Aircraft')} ${esc(a.reg||a.call||a.hex)}</b><br>${esc(a.desc||a.type||'')}<br>${fmtAlt(a.alt)}${a.speed!=null?' · '+a.speed+' kt':''}<br><a href="https://adsb.lol/?icao=${esc(a.hex)}" target="_blank" rel="noopener">See flight path</a>`);
-  }
-  roadLayer.clearLayers();
-  for(const r of (data.roads?.items||[])) if(r.lat!=null&&r.lon!=null)
-    L.circleMarker([r.lat,r.lon],{radius:7,color:'#0b181d',weight:2,fillColor:ROADCOLOR[r.kind]||'#5fe0b0',fillOpacity:1}).addTo(roadLayer)
-      .bindPopup(`<b>${esc(ROADNAME[r.kind]||'Advisory')}</b><br>${esc(r.where||r.type)}${r.description?'<br>'+esc(r.description.slice(0,160)):''}`);
-  bizLayer.clearLayers();
-  if(tab==='build') for(const b of (data.business?.items||[])) if(b.lat!=null&&b.lon!=null)
-    L.circleMarker([b.lat,b.lon],{radius:6,color:'#0b181d',weight:2,fillColor:'#e0b48a',fillOpacity:1}).addTo(bizLayer)
-      .bindPopup(`<b>${esc(b.name)}</b><br>${esc(b.category||'')}<br>${esc(b.address||'')}`);
-  const s=data.train?.status;
-  crossing.setStyle({fillColor:s==='likely_blocked'||s==='closed'?'#ff6b4a':s==='slow'?'#ffd97a':'#ffb86b'});
-}
-
-// Cards
-function card({sec,label,time,title,conf,verdict,evidence=[],src}){
-  return `<article class="card" tabindex="0"><div class="top"><span class="cat"><i class="dot" style="background:var(--${sec})"></i>${esc(label)}</span><span class="time">${esc(time||'')}</span></div>
-  <h3>${title}</h3><div class="verdict"><span class="conf c-${conf}">${conf}</span>${verdict}</div>
-  ${evidence.length?`<ul class="ev">${evidence.map(e=>`<li>${e}</li>`).join('')}</ul>`:''}<div class="src">Source: ${src}</div></article>`;
-}
-function trainCard(){
-  const t=data.train;
-  if(!t) return data.err.train?card({sec:'heads',label:'Train crossing',title:'Frogtown Crossing',conf:'Unknown',verdict:'Road-speed data is unavailable right now.',src:'TomTom Traffic'}):'';
-  const map={clear:['Clear','Clear','Traffic is moving normally at the crossing.'],slow:['Possible','Slow traffic','Traffic is slower than normal. Could be a train, a backup or a light.'],
-    likely_blocked:['Likely','Likely blocked','Traffic has nearly stopped at the crossing. A train is the most likely reason.'],closed:['Likely','Road closed','The road is reported closed at the crossing.']}[t.status]||['Unknown','Unknown',''];
-  return card({sec:'heads',label:'Train crossing',time:'checked '+fmtTime(t.checked),title:`Frogtown Crossing · ${map[1]}`,conf:map[0],verdict:map[2],
-    evidence:[`N. Broad St approach: ${t.currentSpeed} mph (normal ${t.freeFlowSpeed})`,`Travel time through the approach: ${t.travelTime} s (normal ${t.normalTravelTime} s)`,'Town code: a train may not block a Middletown street for more than 5 minutes'],
-    src:'TomTom road speed at N. Broad St & Middletown Warwick Rd'});
-}
-function alertCards(){
-  const a=data.alerts;
-  if(!a) return data.err.alerts?card({sec:'heads',label:'Weather alert',title:'Weather alerts unavailable',conf:'Unknown',verdict:'Couldn\'t reach the National Weather Service. Try again shortly.',src:'National Weather Service'}):'';
-  if(!a.count) return card({sec:'heads',label:'Weather alert',time:'checked '+fmtTime(a.checked),title:'No weather alerts for Middletown',conf:'Confirmed',verdict:'The National Weather Service has no active alerts here right now.',src:'National Weather Service'});
-  return a.alerts.map(x=>card({sec:'heads',label:'Weather alert',time:x.onset?fmtTime(x.onset):'',title:esc(x.event),conf:'Confirmed',verdict:esc(x.headline||''),
-    evidence:[x.ends?`Until ${esc(new Date(x.ends).toLocaleString([], {weekday:'short',hour:'numeric',minute:'2-digit'}))}`:'',x.instruction?esc(x.instruction):''].filter(Boolean),src:'National Weather Service'})).join('');
-}
-function skyCards(){
-  const s=data.sky;
-  if(!s) return data.err.sky?soon('what','Helicopters and low planes overhead: our own local receiver is coming'):'';
-  const time='updated '+fmtTime(s.updated);
-  const helis=s.aircraft.filter(a=>a.heli), low=s.aircraft.filter(a=>!a.heli&&a.low);
-  let h=helis.map(a=>card({sec:'what',label:'In the sky',time,
-    title:`Helicopter ${a.miles!=null?a.miles+' mi '+(a.dir||''):'nearby'} at ${fmtAlt(a.alt)}`,conf:'Identified',
-    verdict:`${esc(a.desc||a.type||'Helicopter')}${a.reg?', registration '+esc(a.reg):''}${a.owner?', operated by '+esc(a.owner):''}. Why it's flying isn't known yet; circling detection comes next.`,
-    evidence:[a.speed!=null?`Speed ${a.speed} knots${a.track!=null?', heading '+a.track+'°':''}`:'',a.call?`Callsign ${esc(a.call)}`:'',`<a href="https://adsb.lol/?icao=${esc(a.hex)}" target="_blank" rel="noopener">See its flight path</a>`].filter(Boolean),
-    src:`Public flight data (${esc(s.source||'community feeds')})`})).join('');
-  if(!helis.length) h+=card({sec:'what',label:'In the sky',time,title:'No helicopters near Middletown right now',conf:'Confirmed',
-    verdict:`${s.count} aircraft within about 15 miles, none of them helicopters.`,evidence:['Some police and government aircraft don\'t broadcast, so a helicopter you hear may not appear'],src:`Public flight data (${esc(s.source||'community feeds')})`});
-  if(low.length) h+=card({sec:'what',label:'In the sky',time,title:`${low.length} low plane${low.length>1?'s':''} under 2,000 ft`,conf:'Identified',
-    verdict:'Usually small planes near local airports, or jets on approach.',evidence:low.slice(0,5).map(a=>`${esc(a.desc||a.type||'Aircraft')} ${esc(a.reg||a.call||'')} · ${fmtAlt(a.alt)}${a.miles!=null?' · '+a.miles+' mi '+(a.dir||''):''}`),src:`Public flight data (${esc(s.source||'community feeds')})`});
-  return h;
-}
-// urgent = optional filter (closures/crashes only): shows nothing when none match, instead of an all-clear card.
-function roadCards(limit=10,urgent=null){
-  let d=data.roads;
-  if(d&&urgent){const items=d.items.filter(urgent);if(!items.length)return'';d={...d,items,count:items.length}}
-  if(!d) return urgent?'':data.err.roads?card({sec:'town',label:'Roads',title:'Road advisories unavailable',conf:'Unknown',verdict:'Couldn\'t reach DelDOT right now. Try again shortly.',src:'DelDOT'}):'';
-  const src=esc(d.source||'DelDOT');
-  if(!d.count) return card({sec:'town',label:'Roads',time:'checked '+fmtTime(d.checked),title:'No road advisories near Middletown',conf:'Clear',
-    verdict:'DelDOT has no closures, crashes or work zones posted within about 8 miles right now.',evidence:d.statewide?[`${d.statewide} advisories statewide, none nearby`]:[],src});
-  return d.items.slice(0,limit).map(r=>card({sec:'town',label:'Roads · '+(ROADNAME[r.kind]||'Advisory'),time:fmtAgo(r.time)||('checked '+fmtTime(d.checked)),
-    title:esc(r.where||r.type),conf:r.official?'Confirmed':'Possible',
-    verdict:esc(r.official?(r.description||r.type):`Reported by drivers through the DelDOT traffic feed: ${r.type.toLowerCase()}.`),
-    evidence:[r.official&&r.description&&r.type?esc(r.type):'',r.lat!=null?`<a href="https://deldot.gov/map/?lat=${r.lat}&lon=${r.lon}" target="_blank" rel="noopener">Open DelDOT map</a>`:''].filter(Boolean),src})).join('')
-    +(d.count>limit?`<p class="src">${d.count-limit} more nearby on the <a href="https://deldot.gov/map/" target="_blank" rel="noopener">DelDOT map</a>.</p>`:'');
-}
-function bizCards(){
-  const d=data.business;
-  if(!d) return data.err.business?card({sec:'build',label:'New business',title:'Business licenses unavailable',conf:'Unknown',verdict:'Couldn\'t reach Delaware Open Data right now. Try again later.',src:'Delaware Open Data'}):'';
-  const src=`<a href="${esc(d.link)}" target="_blank" rel="noopener">Delaware business license records</a>`;
-  const stores=d.items.filter(b=>b.kind==='storefront'), homes=d.items.filter(b=>b.kind==='home');
-  if(!stores.length&&!homes.length) return card({sec:'build',label:'New business',time:'checked '+fmtTime(d.checked),title:`No new licenses in 19709 in the last ${d.days} days`,conf:'Confirmed',verdict:'The state hasn\'t posted any recent business licenses for Middletown.',src});
-  const month=stores.filter(b=>Date.now()-b.licensed<30*864e5).length;
-  let h=card({sec:'build',label:'New business',time:'checked '+fmtTime(d.checked),
-    title:`${stores.length} storefront business${stores.length===1?'':'es'} licensed in the last ${d.days} days`,conf:'Confirmed',
-    verdict:`${month} this month. Restaurants, shops, salons, gyms and offices with a business address in 19709. Licenses can be new businesses or renewals.`,src});
-  h+=stores.slice(0,12).map(b=>card({sec:'build',label:'New business · '+(b.category||'Business'),time:fmtDay(b.licensed),
-    title:esc(b.name||(b.category||'New business')+' (independent)'),conf:'Confirmed',verdict:esc(b.address||'Middletown'),
-    evidence:b.address?[`<a href="https://www.google.com/maps/search/${encodeURIComponent(b.address+', Middletown, DE 19709')}" target="_blank" rel="noopener">See the location</a>`]:[],src})).join('');
-  if(homes.length){
-    const named=homes.filter(b=>b.name);
-    h+=card({sec:'build',label:'New business · Home-based',title:`${homes.length} home-based businesses`,conf:'Confirmed',
-      verdict:'Licensed at a home address. Names shown only when they\'re business names; no owners or addresses.',
-      evidence:named.slice(0,10).map(b=>`<b>${esc(b.name)}</b> · ${esc(b.category||'Business')} · ${fmtDay(b.licensed)}`).concat(homes.length>named.length?[`${homes.length-named.length} more listed under a personal name`]:[]),src});
-  }
-  return h;
-}
-const NEXT=[['2026-11-26','Nov 26–27','Thanksgiving: no school'],['2026-12-23','Dec 23','Winter break starts (schools)'],['2027-01-04','Jan 4','Schools reopen'],['2027-03-26','Mar 26','Spring break starts (schools)']];
-function glance(){
-  const t=data.train, a=data.alerts, r=data.roads, b=data.business;
-  const tStat=t?({clear:'Clear',slow:'Slow',likely_blocked:'Likely blocked',closed:'Closed'}[t.status]||'—'):'—';
-  const closures=r?(r.items||[]).filter(x=>x.kind==='closure'||x.kind==='crash').length:null;
-  const stores=b?(b.items||[]).filter(x=>x.kind==='storefront'&&Date.now()-x.licensed<30*864e5).length:null;
-  const tiles=[[tStat,'Frogtown Crossing'],[a?(a.count?a.count+' active':'None'):'—','Weather alerts'],[closures==null?'—':closures,'Road closures nearby'],[stores==null?'—':stores,'New storefronts (30 days)']];
-  const today=new Date().toISOString().slice(0,10);
-  const next=NEXT.filter(n=>n[0]>=today).slice(0,3);
-  $('glance').innerHTML=`<h2>Middletown at a glance</h2><div class="tiles">${tiles.map(x=>`<div class="tile"><b>${esc(x[0])}</b><span>${x[1]}</span></div>`).join('')}</div>`+
-    (next.length?`<ul class="next">${next.map(n=>`<li><b>${n[1]}</b><span>${n[2]}</span></li>`).join('')}</ul>`:'');
-}
-function ticker(){
+// ---------- Pinned announcements ----------
+function pinItems(){
   const out=[];
-  for(const u of (data.urgent?.items||[])) out.push({t:u.title,link:u.link,src:u.source,time:u.time});
-  for(const a of (data.alerts?.alerts||[])) if(/Warning|Emergency/i.test(a.event||'')||/Severe|Extreme/.test(a.severity||'')) out.push({t:a.headline||a.event,link:'https://forecast.weather.gov/MapClick.php?lat=39.449&lon=-75.716',src:'National Weather Service',time:Date.parse(a.onset)||Date.now()});
-  for(const r of (data.roads?.items||[])) if(r.kind==='crash'&&Date.now()-r.time<6*3600e3) out.push({t:'Crash: '+r.where,link:`https://deldot.gov/map/?lat=${r.lat}&lon=${r.lon}`,src:'DelDOT',time:r.time});
-  const el=$('ticker');
-  if(!out.length){el.classList.remove('on');return}
-  out.sort((a,b)=>b.time-a.time);
-  $('tickrun').innerHTML=out.map(x=>`<a href="${esc(x.link)}" target="_blank" rel="noopener">${esc(x.t)}<small>${esc(x.src)} · ${fmtTime(x.time)}</small></a>`).join('');
-  el.classList.add('on');
+  for(const u of (data.urgent?.items||[])) out.push({id:u.link,t:u.title,link:u.link,src:u.source,time:u.time});
+  for(const a of (data.alerts?.alerts||[])) if(/Warning|Emergency/i.test(a.event||'')||/Severe|Extreme/.test(a.severity||''))
+    out.push({id:a.id,t:a.headline||a.event,link:'https://forecast.weather.gov/MapClick.php?lat=39.449&lon=-75.716',src:'National Weather Service',time:Date.parse(a.onset)||Date.now()});
+  for(const r of (data.roads?.items||[])) if(r.kind==='crash'&&Date.now()-r.time<6*3600e3)
+    out.push({id:r.id,t:'Crash: '+cap(r.where),link:`https://deldot.gov/map/?lat=${r.lat}&lon=${r.lon}`,src:'DelDOT',time:r.time});
+  return out.filter(x=>!dismissed.has(x.id)).sort((a,b)=>b.time-a.time);
 }
-const soon=(sec,t)=>`<article class="card soon"><h3>${t}</h3><div class="src">Coming in a later phase.</div></article>`;
+function renderPins(){
+  const all=pinItems(), show=showAllPins?all:all.slice(0,3);
+  $('pins').innerHTML=show.map(p=>`<div class="pin"><a href="${esc(p.link)}" target="_blank" rel="noopener"><b>${isNew(p.time)?'<span class="newdot"></span>':''}${esc(p.t)}</b><small>${esc(p.src)} · ${ago(p.time)} · tap for details</small></a><button class="x" data-dismiss="${esc(p.id)}" aria-label="Dismiss">×</button></div>`).join('')
+    +(all.length>3&&!showAllPins?`<button class="more" id="morepins">+${all.length-3} more</button>`:'');
+}
 
-function render(){
-  $('chips').innerHTML=Object.entries(SECS).map(([k,c])=>`<button class="chip" data-k="${k}" aria-pressed="${k===tab}">${c.name}</button>`).join('');
-  $('intro').textContent=SECS[tab].intro;
+// ---------- Tiles ----------
+const cap=s=>String(s||'').toLowerCase().replace(/(^|[\s(])\S/g,m=>m.toUpperCase());
+function tiles(){
+  const t=data.train, a=data.alerts, r=data.roads, b=data.business;
+  const roads=r?.items||[], closures=roads.filter(x=>x.kind==='closure'), crashes=roads.filter(x=>x.kind==='crash'), jams=roads.filter(x=>x.kind==='traffic'||x.kind==='hazard');
+  const stores=(b?.items||[]).filter(x=>x.kind==='storefront'), week=stores.filter(x=>Date.now()-x.licensed<7*864e5), month=stores.filter(x=>Date.now()-x.licensed<30*864e5);
+  const warn=(a?.alerts||[]);
+  const T={
+    train:t?{cls:{clear:'ok',slow:'warn',likely_blocked:'bad',closed:'bad'}[t.status]||'',v:{clear:'Clear',slow:'Slow',likely_blocked:'Likely blocked',closed:'Closed'}[t.status]||'Unknown',s:`Broad St ${t.currentSpeed} mph (normal ${t.freeFlowSpeed})`}:{v:'…'},
+    traffic:r?{cls:crashes.length?'bad':jams.length?'warn':'ok',v:crashes.length?crashes.length+' crash'+(crashes.length>1?'es':''):jams.length?'Some delays':'Moving',s:crashes.length||jams.length?'Tap for where':'No reported delays'}:{v:'…'},
+    weather:a?{cls:warn.length?(warn.some(x=>/Warning/.test(x.event))?'bad':'warn'):'ok',v:warn.length?warn[0].event:'No alerts',s:warn.length>1?`+${warn.length-1} more`:'National Weather Service'}:{v:'…'},
+    roads:r?{cls:closures.length?'warn':'ok',v:closures.length?closures.length+' closure'+(closures.length>1?'s':''):'All open',s:'Near Middletown'}:{v:'…'},
+    sky:{cls:'',v:'Coming soon',s:'Helicopters & low planes'},
+    new:b?{cls:month.length?'ok':'',v:month.length?month.length+' new spot'+(month.length>1?'s':''):'Nothing new',s:week.length?week.length+' this week':'Last 30 days'}:{v:'…'},
+  };
+  const newIn={
+    train:false, traffic:crashes.some(x=>isNew(x.time)), weather:warn.some(x=>isNew(Date.parse(x.onset))),
+    roads:closures.some(x=>isNew(x.time)), sky:false, new:stores.some(x=>isNew(x.licensed))};
+  return {T,newIn,lists:{closures,crashes,jams,stores,warn}};
+}
+const LABEL={train:'Frogtown train crossing',traffic:'Traffic',weather:'Weather',roads:'Road closures',sky:'In the sky',new:'New in town'};
+function detail(key,L){
+  const lim=a=>seeAll?a:a.slice(0,3), more=a=>a.length>3&&!seeAll?`<button class="link" id="seeall">See all ${a.length}</button>`:'';
+  const t=data.train;
+  if(key==='train') return t?`<h3>Frogtown Crossing: ${esc({clear:'clear',slow:'slow traffic',likely_blocked:'likely blocked by a train',closed:'road closed'}[t.status]||'unknown')}</h3>
+    <ul><li>N. Broad St approach is ${t.currentSpeed} mph (normal ${t.freeFlowSpeed})<small>Takes ${t.travelTime} s to get through (normal ${t.normalTravelTime} s) · checked ${fmtTime(t.checked)}</small></li>
+    <li>Slow doesn't always mean a train; a backup or a red light looks the same.<small>Town code: a train may not block a Middletown street for more than 5 minutes.</small></li></ul><div class="src">Road speed from TomTom</div>`:'';
+  if(key==='traffic'){const a=[...L.crashes,...L.jams];return `<h3>${a.length?'Reported delays':'Traffic is moving'}</h3>${a.length?`<ul>${lim(a).map(x=>`<li>${esc(cap(x.where))}<small>${esc(x.type)} · ${ago(x.time)}</small></li>`).join('')}</ul>${more(a)}`:'<ul><li>No crashes or official delays reported near Middletown.<small>Open the map for live red/yellow/green traffic.</small></li></ul>'}<div class="src">DelDOT advisories · live colors on the map</div>`;}
+  if(key==='weather') return L.warn.length?`<h3>Weather alerts</h3><ul>${L.warn.map(x=>`<li>${esc(x.headline||x.event)}<small>${x.ends?'Until '+esc(new Date(x.ends).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'})):''}</small></li>`).join('')}</ul><div class="src">National Weather Service</div>`:'<h3>No weather alerts</h3><ul><li>Nothing active for Middletown right now.</li></ul><div class="src">National Weather Service</div>';
+  if(key==='roads') return L.closures.length?`<h3>Road closures nearby</h3><ul>${lim(L.closures).map(x=>`<li>${esc(cap(x.where))}<small>${esc(x.type)} · since ${fmtDay(x.time)} · <a href="https://deldot.gov/map/?lat=${x.lat}&lon=${x.lon}" target="_blank" rel="noopener">DelDOT map</a></small></li>`).join('')}</ul>${more(L.closures)}<div class="src">DelDOT</div>`:'<h3>No closures nearby</h3><div class="src">DelDOT</div>';
+  if(key==='sky') return '<h3>Helicopters & low planes</h3><ul><li>Coming soon: a local receiver will show what\'s flying over town and why.</li></ul>';
+  if(key==='new'){const s=L.stores;return s.length?`<h3>New storefronts in 19709</h3><ul>${lim(s).map(x=>`<li>${isNew(x.licensed)?'<span class="newdot"></span>':''}${esc(x.name||cap(x.category)+' (independent)')}<small>${esc(cap(x.category))} · ${esc(x.address||'')} · licensed ${fmtDay(x.licensed)}</small></li>`).join('')}</ul>${more(s)}<div class="src">State business licenses (new or renewed). New neighborhoods and big projects coming soon.</div>`:'<h3>Nothing new yet</h3>';}
+  return '';
+}
+function renderBoard(){
+  const {T,newIn,lists}=tiles();
+  const keys=['train','traffic','weather','roads','new','sky'];
   let h='';
-  const urgentRoads=()=>roadCards(4,r=>r.kind==='closure'||r.kind==='crash');
-  if(tab==='now') h=trainCard()+alertCards()+urgentRoads()+skyCards();
-  if(tab==='heads') h=trainCard()+urgentRoads()+alertCards()+soon('heads','School traffic, town meetings, burn bans and creek levels');
-  if(tab==='what') h=`<div class="warn">If you think you heard gunfire, call 911 first.</div>`+skyCards()+soon('what','Booms, sirens, spray planes and lights in the sky');
-  if(tab==='town') h=roadCards()+soon('town','Power outages, air quality, police and town news, DART buses');
-  if(tab==='build') h=bizCards()+soon('build','Planning & Zoning applications, hearings and rumor checks');
-  $('feed').innerHTML=h;
-  const errs=Object.keys(data.err).filter(k=>data.err[k]&&k!=='sky'&&k!=='urgent');
-  $('status').textContent=errs.length?`Some live sources are unavailable: ${errs.join(', ')}.`:`Live · refreshes automatically · last update ${fmtTime(Date.now())}`;
-  drawMap();
-  glance();
-  ticker();
+  for(const k of keys){
+    const x=T[k];
+    h+=`<button class="tile ${x.cls||''}" data-k="${k}" aria-expanded="${open===k}"><span class="k">${LABEL[k]}</span><span class="v">${esc(x.v)}</span><span class="s">${esc(x.s||'')}</span>${newIn[k]?'<i class="nd" aria-label="new"></i>':''}</button>`;
+    // place the detail panel after the row that holds the open tile
+    const cols=matchMedia('(max-width:560px)').matches?2:3, i=keys.indexOf(k);
+    if(open&&((i+1)%cols===0||i===keys.length-1)){const oi=keys.indexOf(open);if(Math.floor(oi/cols)===Math.floor(i/cols))h+=`<div class="detail">${detail(open,lists)}</div>`;}
+  }
+  $('board').innerHTML=h;
+  const cnt=Object.values(newIn).filter(Boolean).length+pinItems().filter(p=>isNew(p.time)).length;
+  $('since').innerHTML=lastVisit?(cnt?`<span class="newdot"></span><b>${cnt} update${cnt>1?'s':''}</b> since your last visit (${ago(lastVisit)})`:`Nothing new since your last visit (${ago(lastVisit)})`):'Tap any box for details.';
 }
 
-// Fallback: if the server can't reach adsb.lol (it rate-limits shared cloud addresses), ask it straight from the browser.
-const HELI=new Set(['EC20','EC30','EC35','EC45','EC55','H130','H135','H145','H160','B06','B407','B427','B429','B412','B505','BK17','A109','A119','A139','A169','AS50','AS55','AS65','R22','R44','R66','S76','S92','H60','UH1','MD52','MD60','EXPL']);
-const COMPASS=['N','NE','E','SE','S','SW','W','NW'];
-async function skyDirect(){
-  let d=null;
-  for(const u of ['https://api.airplanes.live/v2/point/39.449/-75.716/15','https://opendata.adsb.fi/api/v2/lat/39.449/lon/-75.716/dist/15','https://api.adsb.lol/v2/point/39.449/-75.716/15']){
-    try{const r=await fetch(u);if(r.ok){d=await r.json();d.ac=d.ac||d.aircraft;d._src=new URL(u).hostname.replace(/^(api|opendata)\./,'');break}}catch(e){}
-  }
-  if(!d)throw 0;
-  const aircraft=(d.ac||[]).filter(a=>typeof a.lat==='number').map(a=>{const alt=a.alt_baro==='ground'?0:(typeof a.alt_baro==='number'?a.alt_baro:null);
-    return {hex:a.hex,call:(a.flight||'').trim()||null,reg:a.r||null,type:a.t||null,desc:a.desc||null,owner:a.ownOp||null,alt,speed:a.gs!=null?Math.round(a.gs):null,track:a.track!=null?Math.round(a.track):null,lat:a.lat,lon:a.lon,
-      miles:a.dst!=null?Math.round(a.dst*11.5078)/10:null,dir:a.dir!=null?COMPASS[Math.round(a.dir/45)%8]:null,heli:a.category==='A7'||HELI.has(a.t),low:alt!==null&&alt>0&&alt<2000}})
-    .sort((x,y)=>(y.heli-x.heli)||((x.alt??99999)-(y.alt??99999)));
-  return {updated:d.now||Date.now(),count:aircraft.length,aircraft,source:d._src};
+// ---------- Coming up ----------
+const NEXT=[['2026-11-26','Nov 26–27','Thanksgiving: no school'],['2026-12-07','Dec 7','Town council meeting, 7:30 PM'],['2026-12-23','Dec 23','Winter break starts'],['2027-01-04','Jan 4','Schools reopen'],['2027-03-26','Mar 26','Spring break starts']];
+function renderNext(){
+  const d=new Date().toISOString().slice(0,10), n=NEXT.filter(x=>x[0]>=d).slice(0,3);
+  $('next').innerHTML=n.length?`<h2>Coming up</h2><ul>${n.map(x=>`<li><b>${x[1]}</b><span>${x[2]}</span></li>`).join('')}</ul>`:'';
 }
-async function load(name){
-  try{const r=await fetch('/api/'+name,{cache:'no-store'});if(!r.ok)throw 0;data[name]=await r.json();data.err[name]=false}
-  catch(e){
-    if(name==='sky'){try{data.sky=await skyDirect();data.err.sky=false}catch(e2){data.err.sky=true}}
-    else data.err[name]=true;
+
+// ---------- Map (loaded only when asked) ----------
+let map=null, layers=null;
+function loadLeaflet(){return new Promise((ok,no)=>{if(window.L)return ok();const c=document.createElement('link');c.rel='stylesheet';c.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';document.head.appendChild(c);const s=document.createElement('script');s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
+async function showMap(){
+  await loadLeaflet();
+  if(!map){
+    map=L.map('map',{attributionControl:false}).setView([39.452,-75.716],13);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,className:'darktiles'}).addTo(map);
+    L.tileLayer('/tiles/flow/{z}/{x}/{y}.png',{opacity:.9,maxZoom:18,minZoom:9,zIndex:5}).addTo(map);
+    layers=L.layerGroup().addTo(map);
   }
-  render();
+  drawMap(); setTimeout(()=>map.invalidateSize(),50);
 }
-const every={sky:30000,train:180000,alerts:300000,roads:180000,business:3600000,urgent:180000};
+function drawMap(){
+  if(!map)return; layers.clearLayers();
+  const s=data.train?.status, c=s==='likely_blocked'||s==='closed'?'#e74c3c':s==='slow'?'#f1c40f':'#ffb86b';
+  L.circleMarker([39.4632,-75.7212],{radius:9,color:'#0b181d',weight:2,fillColor:c,fillOpacity:1}).addTo(layers).bindPopup('Frogtown Crossing');
+  for(const r of (data.roads?.items||[])) if(r.lat!=null) L.circleMarker([r.lat,r.lon],{radius:7,color:'#0b181d',weight:2,fillColor:r.kind==='crash'?'#e74c3c':'#5fe0b0',fillOpacity:1}).addTo(layers).bindPopup(esc(cap(r.where)));
+  for(const b of (data.business?.items||[])) if(b.kind==='storefront'&&b.lat!=null) L.circleMarker([b.lat,b.lon],{radius:6,color:'#0b181d',weight:2,fillColor:'#e0b48a',fillOpacity:1}).addTo(layers).bindPopup(esc(b.name||cap(b.category)));
+}
+
+// ---------- Data ----------
+function render(){renderPins();renderBoard();renderNext();drawMap();$('updated').textContent='Updated '+fmtTime(Date.now())}
+async function load(name){try{const r=await fetch('/api/'+name,{cache:'no-store'});if(r.ok)data[name]=await r.json()}catch(e){}render()}
+const every={train:240000,alerts:300000,roads:180000,business:3600000,urgent:180000};
 for(const [k,ms] of Object.entries(every)){load(k);setInterval(()=>{if(!document.hidden)load(k)},ms)}
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){load('sky');load('train')}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)store.set('hu_last',Date.now());else{load('train');load('urgent')}});
+addEventListener('pagehide',()=>store.set('hu_last',Date.now()));
 
-$('chips').addEventListener('click',ev=>{const b=ev.target.closest('.chip');if(!b)return;tab=b.dataset.k;history.replaceState(null,'',tab==='now'?' ':'#'+tab);render()});
-window.addEventListener('hashchange',()=>{const k=location.hash.slice(1);if(SECS[k]){tab=k;render()}});
+// ---------- Events ----------
+$('board').addEventListener('click',e=>{
+  if(e.target.id==='seeall'){seeAll=true;renderBoard();return}
+  const t=e.target.closest('.tile');if(!t)return;
+  open=open===t.dataset.k?null:t.dataset.k;seeAll=false;renderBoard();
+  if(open==='traffic'&&!$('mapbox').classList.contains('on')){}
+});
+$('pins').addEventListener('click',e=>{
+  const x=e.target.closest('[data-dismiss]');if(x){dismissed.add(x.dataset.dismiss);store.set('hu_dismissed',[...dismissed].slice(-50));renderPins();renderBoard();return}
+  if(e.target.id==='morepins'){showAllPins=true;renderPins()}
+});
+$('mapbtn').addEventListener('click',async()=>{
+  const box=$('mapbox'),on=!box.classList.contains('on');box.classList.toggle('on',on);
+  $('mapbtn').setAttribute('aria-expanded',on);$('mapbtn').textContent=on?'Hide map':'Show map & live traffic';
+  if(on) showMap().catch(()=>{$('map').textContent='Map couldn\'t load.'});
+});
+addEventListener('resize',()=>{if(open)renderBoard()});
 render();
 }
 </script>
