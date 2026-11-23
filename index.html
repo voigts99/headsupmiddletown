@@ -181,12 +181,16 @@ function render(){
 const HELI=new Set(['EC20','EC30','EC35','EC45','EC55','H130','H135','H145','H160','B06','B407','B427','B429','B412','B505','BK17','A109','A119','A139','A169','AS50','AS55','AS65','R22','R44','R66','S76','S92','H60','UH1','MD52','MD60','EXPL']);
 const COMPASS=['N','NE','E','SE','S','SW','W','NW'];
 async function skyDirect(){
-  const r=await fetch('https://api.adsb.lol/v2/point/39.449/-75.716/15');if(!r.ok)throw 0;const d=await r.json();
+  let d=null;
+  for(const u of ['https://api.airplanes.live/v2/point/39.449/-75.716/15','https://opendata.adsb.fi/api/v2/lat/39.449/lon/-75.716/dist/15','https://api.adsb.lol/v2/point/39.449/-75.716/15']){
+    try{const r=await fetch(u);if(r.ok){d=await r.json();d.ac=d.ac||d.aircraft;d._src=new URL(u).hostname.replace(/^(api|opendata)\./,'');break}}catch(e){}
+  }
+  if(!d)throw 0;
   const aircraft=(d.ac||[]).filter(a=>typeof a.lat==='number').map(a=>{const alt=a.alt_baro==='ground'?0:(typeof a.alt_baro==='number'?a.alt_baro:null);
     return {hex:a.hex,call:(a.flight||'').trim()||null,reg:a.r||null,type:a.t||null,desc:a.desc||null,owner:a.ownOp||null,alt,speed:a.gs!=null?Math.round(a.gs):null,track:a.track!=null?Math.round(a.track):null,lat:a.lat,lon:a.lon,
       miles:a.dst!=null?Math.round(a.dst*11.5078)/10:null,dir:a.dir!=null?COMPASS[Math.round(a.dir/45)%8]:null,heli:a.category==='A7'||HELI.has(a.t),low:alt!==null&&alt>0&&alt<2000}})
     .sort((x,y)=>(y.heli-x.heli)||((x.alt??99999)-(y.alt??99999)));
-  return {updated:d.now||Date.now(),count:aircraft.length,aircraft};
+  return {updated:d.now||Date.now(),count:aircraft.length,aircraft,source:d._src};
 }
 async function load(name){
   try{const r=await fetch('/api/'+name,{cache:'no-store'});if(!r.ok)throw 0;data[name]=await r.json();data.err[name]=false}
