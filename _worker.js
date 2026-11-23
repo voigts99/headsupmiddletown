@@ -356,7 +356,27 @@ function parseBiz(rows) {
   const seen = new Set();
   return out.sort((a, b) => b.licensed - a.licensed)
     .filter(b => { const k = b.name.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; })
+    .map(classifyBiz).filter(Boolean)
     .slice(0, 80);
+}
+
+// Privacy + signal: storefronts keep their address and map pin; home-based businesses keep only
+// a business name and type (no owner name, address or pin); paperwork-only filings are dropped.
+const BIZ_SKIP = /non-resident contractor|trade name only|bidding only|commerical lessor|commercial lessor|lessor|drayperson|transportation agent/i;
+const BIZ_ALWAYS_STORE = /restaurant|alcohol|pharmacy/i;
+const BIZ_COMMERCIAL_ADDR = /\b(ste|suite|unit|#)\b|#|\b(n|s)?\s*broad st|\b(e|w)?\s*main st|middletown warwick|summit bridge|peterson rd|wood st|patriot dr|ash blvd|industrial|pennington st|tower ln|green st|scott st|cass st|lake st/i;
+const ENTITY = /\b(llc|l\.l\.c|inc|corp|co|company|group|studio|services|solutions|shop|market|supply|bakery|baked|cafe|kitchen|fitness|salon|hair|cleaning|landscaping|construction|builders|roofing|transport|transportation|logistics|consulting|marketing|media|designs?|creations|boutique|vending|entertainment|academy|aesthetics|printz?|crab|blooms|society|commerce|energy|ai)\b/i;
+const FALLBACK = [39.45028, -75.71684]; // town-center point the state uses when it can't map an address
+function classifyBiz(b) {
+  const cat = b.category || '';
+  if (BIZ_SKIP.test(cat)) return null;
+  const fallback = b.lat != null && Math.abs(b.lat - FALLBACK[0]) < 1e-4 && Math.abs(b.lon - FALLBACK[1]) < 1e-4;
+  const lat = fallback ? null : b.lat, lon = fallback ? null : b.lon;
+  const store = BIZ_ALWAYS_STORE.test(cat) || BIZ_COMMERCIAL_ADDR.test(b.address || '');
+  if (store) return { kind: 'storefront', name: b.name, category: cat || null, address: b.address, licensed: b.licensed, lat, lon };
+  // Home-based: show the business name only if it reads like a business, never a person's name.
+  const named = b.legalName != null || ENTITY.test(b.name);
+  return { kind: 'home', name: named ? b.name : null, category: cat || null, licensed: b.licensed, lat: null, lon: null };
 }
 async function businessHandler(ctx) {
   const headers = { 'user-agent': UA2, accept: 'application/json' };

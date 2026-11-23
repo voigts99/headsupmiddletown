@@ -61,6 +61,15 @@ button:focus-visible,.card:focus-visible{outline:3px solid var(--acc);outline-of
 .warn{background:#3a1712;border:1px solid #6d2a20;color:#ffd2c7;border-radius:12px;padding:10px 14px;font-size:14px;margin-bottom:12px}
 footer{color:var(--dim);font-size:13px;margin-top:26px;border-top:1px solid var(--line);padding-top:14px}
 footer a{color:var(--dim)}
+.glance{border-top:1px solid var(--line);padding:12px 14px}
+.glance h2{font-size:15px;margin:0 0 8px;color:var(--dim);font-family:Inter,sans-serif;font-weight:600}
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.tile{background:#0e2026;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.tile b{display:block;font-family:Archivo,Inter,sans-serif;font-size:17px;line-height:1.2}
+.tile span{font-size:12px;color:var(--dim)}
+.next{list-style:none;margin:10px 0 0;padding:0;font-size:14px}
+.next li{display:flex;gap:10px;padding:4px 0;border-top:1px dashed var(--line)}
+.next li b{flex:none;width:5.5em;font-family:Archivo,Inter,sans-serif}
 .plane{width:22px;height:22px;display:grid;place-items:center}
 .plane svg{width:22px;height:22px}
 </style>
@@ -82,6 +91,7 @@ footer a{color:var(--dim)}
         <span><i class="dot" style="background:var(--town)"></i>Road advisory</span>
         <span><i class="dot" style="background:var(--build)"></i>New business</span>
       </div>
+      <div class="glance" id="glance"></div>
     </div>
     <div>
       <nav class="chips" id="chips" aria-label="Sections"></nav>
@@ -168,7 +178,7 @@ function alertCards(){
 }
 function skyCards(){
   const s=data.sky;
-  if(!s) return data.err.sky?card({sec:'what',label:'In the sky',title:'Flight data unavailable',conf:'Unknown',verdict:'Couldn\'t reach the flight data feeds. Try again shortly.',src:'Community flight feeds'}):'';
+  if(!s) return data.err.sky?soon('what','Helicopters and low planes overhead: our own local receiver is coming'):'';
   const time='updated '+fmtTime(s.updated);
   const helis=s.aircraft.filter(a=>a.heli), low=s.aircraft.filter(a=>!a.heli&&a.low);
   let h=helis.map(a=>card({sec:'what',label:'In the sky',time,
@@ -200,18 +210,34 @@ function bizCards(){
   const d=data.business;
   if(!d) return data.err.business?card({sec:'build',label:'New business',title:'Business licenses unavailable',conf:'Unknown',verdict:'Couldn\'t reach Delaware Open Data right now. Try again later.',src:'Delaware Open Data'}):'';
   const src=`<a href="${esc(d.link)}" target="_blank" rel="noopener">Delaware business license records</a>`;
-  if(!d.count) return card({sec:'build',label:'New business',time:'checked '+fmtTime(d.checked),title:`No new licenses in 19709 in the last ${d.days} days`,conf:'Confirmed',verdict:'The state hasn\'t posted any recent business licenses for Middletown.',src});
-  const week=d.items.filter(b=>Date.now()-b.licensed<7*864e5).length, month=d.items.filter(b=>Date.now()-b.licensed<30*864e5).length;
-  const tell=d.items.some(b=>b.isNew!=null);
+  const stores=d.items.filter(b=>b.kind==='storefront'), homes=d.items.filter(b=>b.kind==='home');
+  if(!stores.length&&!homes.length) return card({sec:'build',label:'New business',time:'checked '+fmtTime(d.checked),title:`No new licenses in 19709 in the last ${d.days} days`,conf:'Confirmed',verdict:'The state hasn\'t posted any recent business licenses for Middletown.',src});
+  const month=stores.filter(b=>Date.now()-b.licensed<30*864e5).length;
   let h=card({sec:'build',label:'New business',time:'checked '+fmtTime(d.checked),
-    title:`${month} business${month===1?'':'es'} licensed in 19709 this month`,conf:'Confirmed',
-    verdict:`${week} in the last 7 days, ${d.count} in the last ${d.days} days.${tell?'':' State records don\'t say which are brand new and which are renewals, so both are listed.'}`,
-    evidence:['Includes home-based and out-of-state businesses with a Middletown address'],src});
-  const cats={};for(const b of d.items){const c=b.category||'Other';cats[c]=(cats[c]||0)+1}
-  const top=Object.entries(cats).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([c,n])=>`${esc(c)} (${n})`).join(' · ');
-  h+=card({sec:'build',label:'New business',title:'Most recent licenses',conf:'Identified',verdict:top?'Top types: '+top:'',
-    evidence:d.items.slice(0,15).map(b=>`<b>${esc(b.name)}</b>${b.isNew?' <span class="conf c-Likely">New</span>':''}${b.legalName?' ('+esc(b.legalName)+')':''} · ${esc(b.category||'Business')}${b.address?' · '+esc(b.address):''} · ${fmtDay(b.licensed)}`),src});
+    title:`${stores.length} storefront business${stores.length===1?'':'es'} licensed in the last ${d.days} days`,conf:'Confirmed',
+    verdict:`${month} this month. Restaurants, shops, salons, gyms and offices with a business address in 19709. Licenses can be new businesses or renewals.`,src});
+  h+=stores.slice(0,12).map(b=>card({sec:'build',label:'New business · '+(b.category||'Business'),time:fmtDay(b.licensed),
+    title:esc(b.name),conf:'Confirmed',verdict:esc(b.address||'Middletown'),
+    evidence:b.address?[`<a href="https://www.google.com/maps/search/${encodeURIComponent(b.address+', Middletown, DE 19709')}" target="_blank" rel="noopener">See the location</a>`]:[],src})).join('');
+  if(homes.length){
+    const named=homes.filter(b=>b.name);
+    h+=card({sec:'build',label:'New business · Home-based',title:`${homes.length} home-based businesses`,conf:'Confirmed',
+      verdict:'Licensed at a home address. Names shown only when they\'re business names; no owners or addresses.',
+      evidence:named.slice(0,10).map(b=>`<b>${esc(b.name)}</b> · ${esc(b.category||'Business')} · ${fmtDay(b.licensed)}`).concat(homes.length>named.length?[`${homes.length-named.length} more listed under a personal name`]:[]),src});
+  }
   return h;
+}
+const NEXT=[['2026-11-26','Nov 26–27','Thanksgiving: no school'],['2026-12-23','Dec 23','Winter break starts (schools)'],['2027-01-04','Jan 4','Schools reopen'],['2027-03-26','Mar 26','Spring break starts (schools)']];
+function glance(){
+  const t=data.train, a=data.alerts, r=data.roads, b=data.business;
+  const tStat=t?({clear:'Clear',slow:'Slow',likely_blocked:'Likely blocked',closed:'Closed'}[t.status]||'—'):'—';
+  const closures=r?(r.items||[]).filter(x=>x.kind==='closure'||x.kind==='crash').length:null;
+  const stores=b?(b.items||[]).filter(x=>x.kind==='storefront'&&Date.now()-x.licensed<30*864e5).length:null;
+  const tiles=[[tStat,'Frogtown Crossing'],[a?(a.count?a.count+' active':'None'):'—','Weather alerts'],[closures==null?'—':closures,'Road closures nearby'],[stores==null?'—':stores,'New storefronts (30 days)']];
+  const today=new Date().toISOString().slice(0,10);
+  const next=NEXT.filter(n=>n[0]>=today).slice(0,3);
+  $('glance').innerHTML=`<h2>Middletown at a glance</h2><div class="tiles">${tiles.map(x=>`<div class="tile"><b>${esc(x[0])}</b><span>${x[1]}</span></div>`).join('')}</div>`+
+    (next.length?`<ul class="next">${next.map(n=>`<li><b>${n[1]}</b><span>${n[2]}</span></li>`).join('')}</ul>`:'');
 }
 const soon=(sec,t)=>`<article class="card soon"><h3>${t}</h3><div class="src">Coming in a later phase.</div></article>`;
 
@@ -226,9 +252,10 @@ function render(){
   if(tab==='town') h=roadCards()+soon('town','Power outages, air quality, police and town news, DART buses');
   if(tab==='build') h=bizCards()+soon('build','Planning & Zoning applications, hearings and rumor checks');
   $('feed').innerHTML=h;
-  const errs=Object.keys(data.err).filter(k=>data.err[k]);
+  const errs=Object.keys(data.err).filter(k=>data.err[k]&&k!=='sky');
   $('status').textContent=errs.length?`Some live sources are unavailable: ${errs.join(', ')}.`:`Live · refreshes automatically · last update ${fmtTime(Date.now())}`;
   drawMap();
+  glance();
 }
 
 // Fallback: if the server can't reach adsb.lol (it rate-limits shared cloud addresses), ask it straight from the browser.
