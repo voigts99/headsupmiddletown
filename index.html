@@ -217,7 +217,7 @@ function bizCards(){
     title:`${stores.length} storefront business${stores.length===1?'':'es'} licensed in the last ${d.days} days`,conf:'Confirmed',
     verdict:`${month} this month. Restaurants, shops, salons, gyms and offices with a business address in 19709. Licenses can be new businesses or renewals.`,src});
   h+=stores.slice(0,12).map(b=>card({sec:'build',label:'New business · '+(b.category||'Business'),time:fmtDay(b.licensed),
-    title:esc(b.name),conf:'Confirmed',verdict:esc(b.address||'Middletown'),
+    title:esc(b.name||(b.category||'New business')+' (independent)'),conf:'Confirmed',verdict:esc(b.address||'Middletown'),
     evidence:b.address?[`<a href="https://www.google.com/maps/search/${encodeURIComponent(b.address+', Middletown, DE 19709')}" target="_blank" rel="noopener">See the location</a>`]:[],src})).join('');
   if(homes.length){
     const named=homes.filter(b=>b.name);

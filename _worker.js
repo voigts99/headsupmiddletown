@@ -373,7 +373,11 @@ function classifyBiz(b) {
   const fallback = b.lat != null && Math.abs(b.lat - FALLBACK[0]) < 1e-4 && Math.abs(b.lon - FALLBACK[1]) < 1e-4;
   const lat = fallback ? null : b.lat, lon = fallback ? null : b.lon;
   const store = BIZ_ALWAYS_STORE.test(cat) || BIZ_COMMERCIAL_ADDR.test(b.address || '');
-  if (store) return { kind: 'storefront', name: b.name, category: cat || null, address: b.address, licensed: b.licensed, lat, lon };
+  // A storefront licensed under a person's own name shows the business type instead of the name.
+  const words = b.name.trim().split(/\s+/);
+  const personLike = !ENTITY.test(b.name) && words.length >= 2 && words.length <= 4 && words.every(w => /^[A-Za-z'.-]+$/.test(w))
+    && (!b.legalName || b.legalName.toUpperCase().includes(words[words.length - 1].toUpperCase()));
+  if (store) return { kind: 'storefront', name: personLike ? null : b.name, category: cat || null, address: b.address, licensed: b.licensed, lat, lon };
   // Home-based: show the business name only if it reads like a business, never a person's name.
   const named = b.legalName != null || ENTITY.test(b.name);
   return { kind: 'home', name: named ? b.name : null, category: cat || null, licensed: b.licensed, lat: null, lon: null };
