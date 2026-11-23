@@ -27,6 +27,18 @@ h1,h2,h3{font-family:Archivo,Inter,sans-serif;margin:0;line-height:1.1;text-wrap
 header{margin:10px 0 14px}
 h1{font-size:clamp(30px,6vw,44px);font-weight:800}
 h1 span{color:var(--acc)}
+.logo{display:block;width:min(560px,92vw);height:auto;margin:0 0 4px}
+.ticker{display:none;background:#5a1712;border-bottom:1px solid #8a2a20;color:#fff;font-size:15px;overflow:hidden;white-space:nowrap}
+.ticker.on{display:flex;align-items:center}
+.ticker .lbl{flex:none;background:#c0392b;font-weight:700;padding:9px 12px;font-family:Archivo,Inter,sans-serif;letter-spacing:.02em}
+.ticker .rail{overflow:hidden;flex:1}
+.ticker .run{display:inline-block;padding-left:100%;animation:tick 40s linear infinite}
+.ticker:hover .run,.ticker:focus-within .run{animation-play-state:paused}
+.ticker a{color:#fff;text-decoration:none;margin-right:42px}
+.ticker a:hover,.ticker a:focus{text-decoration:underline}
+.ticker a small{color:#ffcdc4;margin-left:6px}
+@keyframes tick{to{transform:translateX(-100%)}}
+@media(prefers-reduced-motion:reduce){.ticker{white-space:normal}.ticker .run{animation:none;padding-left:12px}}
 .tag{color:var(--dim);font-size:14px;margin-top:6px}
 .grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px;align-items:start}
 @media(max-width:820px){.grid{grid-template-columns:minmax(0,1fr)}}
@@ -75,10 +87,11 @@ footer a{color:var(--dim)}
 </style>
 </head>
 <body>
+<div class="ticker" id="ticker" role="region" aria-label="Urgent local news"><span class="lbl">ALERT</span><div class="rail"><div class="run" id="tickrun"></div></div></div>
 <div class="beta">Live test version · real data from community flight feeds, TomTom, DelDOT, the National Weather Service and Delaware Open Data · more sections coming</div>
 <div class="wrap">
   <header>
-    <h1>HeadsUp <span>Middletown</span></h1>
+    <h1><img class="logo" src="logo.webp" alt="HeadsUp Middletown" width="1400" height="525"></h1>
     <div class="tag">What was that, and what's coming · Middletown, DE 19709</div>
   </header>
   <div class="grid">
@@ -118,7 +131,7 @@ const SECS={
   build:{name:'What\'s going in?',intro:'Businesses newly licensed in 19709 by the State of Delaware. Zoning applications coming next.'}
 };
 let tab=location.hash.slice(1); if(!SECS[tab])tab='now';
-const data={sky:null,train:null,alerts:null,roads:null,business:null,err:{}};
+const data={sky:null,train:null,alerts:null,roads:null,business:null,urgent:null,err:{}};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmtTime=t=>new Date(t).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});
@@ -239,6 +252,17 @@ function glance(){
   $('glance').innerHTML=`<h2>Middletown at a glance</h2><div class="tiles">${tiles.map(x=>`<div class="tile"><b>${esc(x[0])}</b><span>${x[1]}</span></div>`).join('')}</div>`+
     (next.length?`<ul class="next">${next.map(n=>`<li><b>${n[1]}</b><span>${n[2]}</span></li>`).join('')}</ul>`:'');
 }
+function ticker(){
+  const out=[];
+  for(const u of (data.urgent?.items||[])) out.push({t:u.title,link:u.link,src:u.source,time:u.time});
+  for(const a of (data.alerts?.alerts||[])) if(/Warning|Emergency/i.test(a.event||'')||/Severe|Extreme/.test(a.severity||'')) out.push({t:a.headline||a.event,link:'https://forecast.weather.gov/MapClick.php?lat=39.449&lon=-75.716',src:'National Weather Service',time:Date.parse(a.onset)||Date.now()});
+  for(const r of (data.roads?.items||[])) if(r.kind==='crash'&&Date.now()-r.time<6*3600e3) out.push({t:'Crash: '+r.where,link:`https://deldot.gov/map/?lat=${r.lat}&lon=${r.lon}`,src:'DelDOT',time:r.time});
+  const el=$('ticker');
+  if(!out.length){el.classList.remove('on');return}
+  out.sort((a,b)=>b.time-a.time);
+  $('tickrun').innerHTML=out.map(x=>`<a href="${esc(x.link)}" target="_blank" rel="noopener">${esc(x.t)}<small>${esc(x.src)} · ${fmtTime(x.time)}</small></a>`).join('');
+  el.classList.add('on');
+}
 const soon=(sec,t)=>`<article class="card soon"><h3>${t}</h3><div class="src">Coming in a later phase.</div></article>`;
 
 function render(){
@@ -252,10 +276,11 @@ function render(){
   if(tab==='town') h=roadCards()+soon('town','Power outages, air quality, police and town news, DART buses');
   if(tab==='build') h=bizCards()+soon('build','Planning & Zoning applications, hearings and rumor checks');
   $('feed').innerHTML=h;
-  const errs=Object.keys(data.err).filter(k=>data.err[k]&&k!=='sky');
+  const errs=Object.keys(data.err).filter(k=>data.err[k]&&k!=='sky'&&k!=='urgent');
   $('status').textContent=errs.length?`Some live sources are unavailable: ${errs.join(', ')}.`:`Live · refreshes automatically · last update ${fmtTime(Date.now())}`;
   drawMap();
   glance();
+  ticker();
 }
 
 // Fallback: if the server can't reach adsb.lol (it rate-limits shared cloud addresses), ask it straight from the browser.
@@ -281,7 +306,7 @@ async function load(name){
   }
   render();
 }
-const every={sky:30000,train:180000,alerts:300000,roads:180000,business:3600000};
+const every={sky:30000,train:180000,alerts:300000,roads:180000,business:3600000,urgent:180000};
 for(const [k,ms] of Object.entries(every)){load(k);setInterval(()=>{if(!document.hidden)load(k)},ms)}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){load('sky');load('train')}});
 

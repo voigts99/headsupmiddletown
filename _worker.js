@@ -402,6 +402,34 @@ async function businessHandler(ctx) {
   return json({ error: 'source_unavailable', tried }, 502, 60);
 }
 
+
+// ---------- GET /api/urgent — official incident news near Middletown for the scrolling banner ----------
+// Source: Delaware State Police press releases (official, links to the full release).
+const NEAR = /\b(middletown|odessa|townsend|bear|glasgow|smyrna|port penn|st\.? georges|summit bridge|boyds corner|warwick|route 1|route 301|rt\.? 1|rt\.? 301|us 301|de 1|pulaski highway|wrangle hill|cedar lane|appoquinimink)\b/i;
+const SKIP_DSP = /sex offender|notification|recruit|academy graduat|award|launch|ceremony|hiring|scholarship|toy drive|donat/i;
+const strip = t => String(t || '').replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, ' ').replace(/&#8217;|&rsquo;/g, "'").replace(/&#8211;|&ndash;/g, '-').replace(/&amp;/g, '&').replace(/&nbsp;|&#160;/g, ' ').replace(/&#\d+;/g, '').replace(/\s+/g, ' ').trim();
+async function urgentHandler(ctx) {
+  const items = [], tried = [];
+  try {
+    const r = await cachedFetch(ctx, 'https://cache.local/dsp', 'https://dsp.delaware.gov/feed/', { headers: { 'user-agent': UA2 } }, 300);
+    if (r.ok) {
+      const xml = await r.text();
+      for (const m of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
+        const get = tag => { const x = m[1].match(new RegExp('<' + tag + '[^>]*>([\\s\\S]*?)</' + tag + '>')); return x ? x[1] : ''; };
+        const title = strip(get('title')), link = strip(get('link')), when = Date.parse(strip(get('pubDate')));
+        const body = strip(get('content:encoded') || get('description'));
+        if (!title || !link || SKIP_DSP.test(title)) continue;
+        if (!when || Date.now() - when > 48 * 3600e3) continue;
+        const place = (title + ' ' + body).match(NEAR);
+        if (!place) continue;
+        items.push({ title, link, time: when, source: 'Delaware State Police', place: place[0] });
+      }
+    } else tried.push('dsp:' + r.status);
+  } catch (e) { tried.push('dsp:error'); }
+  items.sort((a, b) => b.time - a.time);
+  return json({ count: items.length, items: items.slice(0, 8), checked: Date.now(), tried }, 200, 120);
+}
+
 // ---------- GET /api/sources — diagnostics: what each Phase 2 upstream actually returns ----------
 async function sourcesHandler() {
   const probe = async (name, url, headers = {}) => {
@@ -431,6 +459,7 @@ export default {
       if (pathname === '/api/alerts') return await alertsHandler(c);
       if (pathname === '/api/roads') return await roadsHandler(c);
       if (pathname === '/api/business') return await businessHandler(c);
+      if (pathname === '/api/urgent') return await urgentHandler(c);
       if (pathname === '/api/sources') return await sourcesHandler();
       if (pathname === '/api/check') return json({ tomtom_key: !!env.TOMTOM_API_KEY, opensky_id: !!env.OPENSKY_CLIENT_ID, opensky_secret: !!env.OPENSKY_CLIENT_SECRET, socrata_token: !!env.SOCRATA_APP_TOKEN }, 200, 0);
     } catch (e) {
