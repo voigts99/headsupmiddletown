@@ -58,7 +58,7 @@ footer a{color:var(--dim)}
 </style>
 </head>
 <body>
-<div class="beta">Live test version · real data from adsb.lol, TomTom and the National Weather Service · more sections coming</div>
+<div class="beta">Live test version · real data from community flight feeds, TomTom and the National Weather Service · more sections coming</div>
 <div class="wrap">
   <header>
     <h1>HeadsUp <span>Middletown</span></h1>
@@ -81,7 +81,7 @@ footer a{color:var(--dim)}
     </div>
   </div>
   <footer>
-    Aircraft data: <a href="https://adsb.lol">adsb.lol</a> (ODbL) · Road speed: TomTom · Alerts: National Weather Service · Map © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors.
+    Aircraft data: <a href="https://airplanes.live">airplanes.live</a>, <a href="https://adsb.fi">adsb.fi</a>, <a href="https://adsb.lol">adsb.lol</a> · Road speed: TomTom · Alerts: National Weather Service · Map © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors.
     Not an emergency service. In an emergency, call 911.
   </footer>
 </div>
@@ -146,18 +146,18 @@ function alertCards(){
 }
 function skyCards(){
   const s=data.sky;
-  if(!s) return data.err.sky?card({sec:'what',label:'In the sky',title:'Flight data unavailable',conf:'Unknown',verdict:'Couldn\'t reach adsb.lol. Try again shortly.',src:'adsb.lol'}):'';
+  if(!s) return data.err.sky?card({sec:'what',label:'In the sky',title:'Flight data unavailable',conf:'Unknown',verdict:'Couldn\'t reach the flight data feeds. Try again shortly.',src:'Community flight feeds'}):'';
   const time='updated '+fmtTime(s.updated);
   const helis=s.aircraft.filter(a=>a.heli), low=s.aircraft.filter(a=>!a.heli&&a.low);
   let h=helis.map(a=>card({sec:'what',label:'In the sky',time,
     title:`Helicopter ${a.miles!=null?a.miles+' mi '+(a.dir||''):'nearby'} at ${fmtAlt(a.alt)}`,conf:'Identified',
     verdict:`${esc(a.desc||a.type||'Helicopter')}${a.reg?', registration '+esc(a.reg):''}${a.owner?', operated by '+esc(a.owner):''}. Why it's flying isn't known yet; circling detection comes next.`,
     evidence:[a.speed!=null?`Speed ${a.speed} knots${a.track!=null?', heading '+a.track+'°':''}`:'',a.call?`Callsign ${esc(a.call)}`:'',`<a href="https://adsb.lol/?icao=${esc(a.hex)}" target="_blank" rel="noopener">See its flight path</a>`].filter(Boolean),
-    src:'Public flight data (adsb.lol)'})).join('');
+    src:`Public flight data (${esc(s.source||'community feeds')})`})).join('');
   if(!helis.length) h+=card({sec:'what',label:'In the sky',time,title:'No helicopters near Middletown right now',conf:'Confirmed',
-    verdict:`${s.count} aircraft within about 15 miles, none of them helicopters.`,evidence:['Some police and government aircraft don\'t broadcast, so a helicopter you hear may not appear'],src:'Public flight data (adsb.lol)'});
+    verdict:`${s.count} aircraft within about 15 miles, none of them helicopters.`,evidence:['Some police and government aircraft don\'t broadcast, so a helicopter you hear may not appear'],src:`Public flight data (${esc(s.source||'community feeds')})`});
   if(low.length) h+=card({sec:'what',label:'In the sky',time,title:`${low.length} low plane${low.length>1?'s':''} under 2,000 ft`,conf:'Identified',
-    verdict:'Usually small planes near local airports, or jets on approach.',evidence:low.slice(0,5).map(a=>`${esc(a.desc||a.type||'Aircraft')} ${esc(a.reg||a.call||'')} · ${fmtAlt(a.alt)}${a.miles!=null?' · '+a.miles+' mi '+(a.dir||''):''}`),src:'Public flight data (adsb.lol)'});
+    verdict:'Usually small planes near local airports, or jets on approach.',evidence:low.slice(0,5).map(a=>`${esc(a.desc||a.type||'Aircraft')} ${esc(a.reg||a.call||'')} · ${fmtAlt(a.alt)}${a.miles!=null?' · '+a.miles+' mi '+(a.dir||''):''}`),src:`Public flight data (${esc(s.source||'community feeds')})`});
   return h;
 }
 const soon=(sec,t)=>`<article class="card soon"><h3>${t}</h3><div class="src">Coming in a later phase.</div></article>`;

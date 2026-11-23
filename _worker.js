@@ -45,18 +45,25 @@ const HELI = new Set([
 const COMPASS = ['N','NE','E','SE','S','SW','W','NW'];
 
 async function skyHandler(ctx) {
-  const url = `https://api.adsb.lol/v2/point/${CENTER.lat}/${CENTER.lon}/15`;
-  let res;
-  try {
-    res = await cachedFetch(ctx, 'https://cache.local/sky', url,
-      { headers: { 'user-agent': 'HeadsUpMiddletown/0.1 (headsupmiddletown.pages.dev)' } }, 15);
-  } catch (e) {
-    return json({ error: 'source_unavailable' }, 502, 5);
+  // Free community flight feeds, tried in order (non-commercial test phase).
+  const sources = [
+    ['airplanes.live', `https://api.airplanes.live/v2/point/${CENTER.lat}/${CENTER.lon}/15`],
+    ['adsb.fi', `https://opendata.adsb.fi/api/v2/lat/${CENTER.lat}/lon/${CENTER.lon}/dist/15`],
+    ['adsb.lol', `https://api.adsb.lol/v2/point/${CENTER.lat}/${CENTER.lon}/15`],
+  ];
+  let res = null, used = null, tried = [];
+  for (const [name, url] of sources) {
+    try {
+      const r = await cachedFetch(ctx, 'https://cache.local/sky-' + name, url,
+        { headers: { 'user-agent': 'HeadsUpMiddletown/0.1 (headsupmiddletown.ny4fc7cnvz.workers.dev)' } }, 15);
+      if (r.ok) { res = r; used = name; break; }
+      tried.push(name + ':' + r.status);
+    } catch (e) { tried.push(name + ':error'); }
   }
-  if (!res.ok) return json({ error: 'source_unavailable', status: res.status }, 502, 5);
+  if (!res) return json({ error: 'source_unavailable', tried }, 502, 5);
 
   const d = await res.json();
-  const aircraft = (d.ac || [])
+  const aircraft = (d.ac || d.aircraft || [])
     .filter(a => typeof a.lat === 'number' && typeof a.lon === 'number')
     .map(a => {
       const alt = a.alt_baro === 'ground' ? 0 : (typeof a.alt_baro === 'number' ? a.alt_baro : null);
@@ -84,7 +91,7 @@ async function skyHandler(ctx) {
     .sort((x, y) => (y.heli - x.heli) || ((x.alt ?? 99999) - (y.alt ?? 99999)));
 
   return json({ updated: d.now || Date.now(), count: aircraft.length, aircraft,
-    source: 'adsb.lol (ODbL)' }, 200, 15);
+    source: used }, 200, 15);
 }
 
 // GET /api/train — Frogtown Crossing (N. Broad St at Middletown Warwick Rd), from TomTom road speed.
