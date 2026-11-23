@@ -144,7 +144,7 @@ function tiles(){
   const roads=r?.items||[], closures=roads.filter(x=>x.kind==='closure'), crashes=roads.filter(x=>x.kind==='crash'), jams=roads.filter(x=>x.kind==='traffic'||x.kind==='hazard');
   const stores=(b?.items||[]).filter(x=>x.kind==='storefront'), week=stores.filter(x=>Date.now()-x.licensed<7*864e5), month=stores.filter(x=>Date.now()-x.licensed<30*864e5);
   const warn=(a?.alerts||[]);
-  const P=data.projects, proj=P?.items||[], yr=Date.now()-400*864e5;
+  const P=data.projects, proj=P?.items||[], yr=Date.now()-730*864e5;
   const shops=proj.filter(x=>(x.kind==='shops'||x.kind==='mixed')&&(x.date||0)>yr), hoods=proj.filter(x=>x.kind==='homes'||(x.kind==='mixed'&&x.units)).sort((x,y)=>(y.units||0)-(x.units||0));
   const homesTotal=hoods.reduce((n,x)=>n+(x.units||0),0);
   const T={
@@ -153,7 +153,7 @@ function tiles(){
     weather:a?{cls:warn.length?(warn.some(x=>/Warning/.test(x.event))?'bad':'warn'):'ok',v:warn.length?warn[0].event:'No alerts',s:warn.length>1?`+${warn.length-1} more`:'National Weather Service'}:{v:'…'},
     roads:r?{cls:closures.length?'warn':'ok',v:closures.length?closures.length+' closure'+(closures.length>1?'s':''):'All open',s:'Near Middletown'}:{v:'…'},
     sky:{cls:'',v:'Coming soon',s:'Helicopters & low planes'},
-    new:P?{cls:shops.length?'ok':'',v:shops.length+' stores & spots',s:homesTotal?homesTotal.toLocaleString()+' new homes planned':'In the works nearby'}:{v:'…'},
+    new:P?{cls:shops.length?'ok':'',v:shops.length+' business'+(shops.length===1?'':'es'),s:homesTotal?homesTotal.toLocaleString()+' new homes planned':'In the works nearby'}:{v:'…'},
   };
   const newIn={
     train:false, traffic:crashes.some(x=>isNew(x.time)), weather:warn.some(x=>isNew(Date.parse(x.onset))),
@@ -178,7 +178,7 @@ function detail(key,L){
     let h=`<h3>Stores, restaurants &amp; businesses</h3>${sh.length?`<ul>${lim(sh).map(row).join('')}</ul>`:'<ul><li>Nothing filed in the last year.</li></ul>'}`;
     h+=`<h3 style="margin-top:12px">New neighborhoods</h3>${ho.length?`<ul>${(seeAll?ho:ho.slice(0,3)).map(row).join('')}</ul>`:'<ul><li>None filed.</li></ul>'}`;
     if((sh.length>3||ho.length>3)&&!seeAll) h+=`<button class="link" id="seeall">See all ${sh.length+ho.length}</button>`;
-    const st=L.stores.slice(0,3);
+    const st=L.stores.filter(x=>x.name).slice(0,3);
     if(st.length) h+=`<div class="src" style="margin-top:10px">Recently licensed storefronts: ${st.map(x=>esc(x.name||cap(x.category))).join(' · ')}</div>`;
     return h+'<div class="src">Sources: Delaware Office of State Planning (PLUS reviews) and New Castle County Land Use. Filed plans can change or stall.</div>';
   }
