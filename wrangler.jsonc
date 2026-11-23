@@ -1,0 +1,11 @@
+{
+  // HeadsUp Middletown — tells Cloudflare to run _worker.js for /api/* and serve the site files.
+  "name": "headsupmiddletown",
+  "main": "_worker.js",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  }
+}
