@@ -445,6 +445,80 @@ async function flowTile(ctx, z, x, y) {
   return new Response(r.body, { headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=120' } });
 }
 
+
+// ---------- GET /api/projects — what's being built: state PLUS reviews + New Castle County development activity ----------
+const BOX = '-75.84,39.37,-75.57,39.55'; // Middletown area
+function unitsFrom(t) { const m = String(t || '').match(/(\d[\d,]*)\s*(?:-|\s)?(?:single[- ]family|townhouse|townhome|twin|duplex|apartment|multi-?family|dwelling|residential)?\s*(units|lots|homes|dwellings|townhouses|townhomes|apartments)\b/i); return m ? +m[1].replace(/,/g, '') : null; }
+function sqftFrom(t) { const m = String(t || '').match(/(\d[\d,]{2,})\s*(?:square feet|square foot|sq\.?\s*ft|s\.\s*f\.?|sf)\b/i); return m ? +m[1].replace(/,/g, '') : null; }
+function kindOf(t, devType) {
+  const x = (String(devType || '') + ' ' + t).toLowerCase();
+  if (/restaurant|retail|store|shopping|grocery|commercial|office|hotel|bank|gas station|wawa|car wash|medical|daycare|fitness|self[- ]storage|storage/.test(x)) return /residential|apartment|homes|units|lots/.test(x) ? 'mixed' : 'shops';
+  if (/warehouse|industrial|distribution|manufactur|flex/.test(x)) return 'industrial';
+  if (/subdivi|residential|homes|townhouse|apartment|units|lots|dwelling|hamlet|village/.test(x)) return 'homes';
+  if (/school|church|fire|library|park|clubhouse|civic/.test(x)) return 'community';
+  return 'other';
+}
+const cleanTitle = t => String(t || '').replace(/\s+/g, ' ').trim().toLowerCase().replace(/(^|[\s(\-/])\S/g, m => m.toUpperCase());
+async function plusProjects(ctx) {
+  const q = new URLSearchParams({ where: "PLUS_TYPE NOT LIKE 'Comprehensive%' AND PLUS_ID >= '2023'", geometry: BOX, geometryType: 'esriGeometryEnvelope', inSR: '4326',
+    spatialRel: 'esriSpatialRelIntersects', outFields: 'PLUS_ID,PLUS_TYPE,PROJECT_TITLE,PROJ_DESCRIPTION,DEVELOPMENT_TYPE,RESIDENTIAL_UNITS,COM_SQFT,PROJECT_AREA_ACRES,LOCATION,JURISDICTION,LATITUDE,LONGITUDE,REVIEW_STATUS,APP_URL,PROPOSED_USE',
+    returnGeometry: 'false', orderByFields: 'PLUS_ID DESC', resultRecordCount: '60', f: 'json' });
+  const url = 'https://enterprise.firstmap.delaware.gov/arcgis/rest/services/PlanningCadastre/DE_Planning_Development/FeatureServer/4/query?' + q;
+  const r = await cachedFetch(ctx, 'https://cache.local/plus-' + new Date().toISOString().slice(0, 10), url, { headers: { 'user-agent': UA2 } }, 21600);
+  if (!r.ok) throw new Error('plus_' + r.status);
+  const d = await r.json();
+  return (d.features || []).map(f => f.attributes).filter(a => !/rezoning|ordinance|text amendment/i.test(a.PLUS_TYPE || '')).map(a => {
+    const desc = String(a.PROJ_DESCRIPTION || a.PROPOSED_USE || '').replace(/\s+/g, ' ').trim();
+    const [y, m] = String(a.PLUS_ID || '').split('-');
+    return {
+      id: 'plus-' + a.PLUS_ID, title: cleanTitle(a.PROJECT_TITLE) || 'Proposed project',
+      what: desc.length > 160 ? desc.slice(0, 157) + '…' : desc,
+      kind: kindOf(desc + ' ' + (a.PROPOSED_USE || ''), a.DEVELOPMENT_TYPE),
+      units: a.RESIDENTIAL_UNITS || unitsFrom(desc), sqft: a.COM_SQFT || sqftFrom(desc), acres: a.PROJECT_AREA_ACRES || null,
+      where: cleanTitle(a.LOCATION) || (a.JURISDICTION && a.JURISDICTION !== 'Unincorporated' ? 'Town of ' + a.JURISDICTION : null),
+      lat: a.LATITUDE || null, lon: a.LONGITUDE || null,
+      date: y && m ? Date.UTC(+y, +m - 1, 1) : null,
+      stage: 'Proposed', stageNote: 'Reviewed by the state (PLUS)', source: 'Delaware Office of State Planning', link: a.APP_URL || 'https://stateplanning.delaware.gov/plus/',
+    };
+  });
+}
+async function countyProjects(ctx) {
+  const since = new Date(Date.now() - 2 * 365 * 864e5).toISOString().slice(0, 10);
+  const q = new URLSearchParams({ where: `apdttm >= DATE '${since}'`, geometry: BOX, geometryType: 'esriGeometryEnvelope', inSR: '4326', spatialRel: 'esriSpatialRelIntersects',
+    outFields: 'apno,projname,apdttm,aptype,worktype,status,descript,comments', returnGeometry: 'true', outSR: '4326', maxAllowableOffset: '0.0005', geometryPrecision: '5',
+    orderByFields: 'apdttm DESC', resultRecordCount: '120', f: 'json' });
+  const url = 'https://gis.nccde.org/agsserver/rest/services/BaseMaps/LandUse/MapServer/3/query?' + q;
+  const r = await cachedFetch(ctx, 'https://cache.local/ncc-' + new Date().toISOString().slice(0, 10), url, { headers: { 'user-agent': UA2 } }, 21600);
+  if (!r.ok) throw new Error('ncc_' + r.status);
+  const d = await r.json();
+  return (d.features || []).map(f => {
+    const a = f.attributes, c = String(a.comments || '').replace(/\s+/g, ' ').trim();
+    const sentences = c.split(/(?<=\.)\s+/);
+    const where = sentences[0] && /side of|corner of|feet|intersection|end of/i.test(sentences[0]) ? sentences[0].replace(/\.$/, '') : null;
+    const what = sentences.filter(x => x !== sentences[0] || !where).filter(x => !/zoning\.?$|^cd \d|hundred\.?$/i.test(x)).join(' ').trim();
+    const units = unitsFrom(c), sqft = sqftFrom(c);
+    let pt = null; const ring = f.geometry?.rings?.[0];
+    if (ring?.length) { let x = 0, y = 0; for (const p of ring) { x += p[0]; y += p[1]; } pt = [y / ring.length, x / ring.length]; }
+    const st = { A: 'In review', R: 'Approved', C: 'Approved', E: 'Expired', I: 'On hold' }[a.status] || cleanTitle(a.descript) || 'Filed';
+    return {
+      id: 'ncc-' + a.apno, title: cleanTitle(a.projname) || 'County application', what: what.length > 160 ? what.slice(0, 157) + '…' : what,
+      kind: kindOf(c), units, sqft, acres: null, where, lat: pt ? pt[0] : null, lon: pt ? pt[1] : null,
+      date: a.apdttm || null, stage: st, stageNote: 'New Castle County land use', major: /MAJ/i.test(a.worktype || ''),
+      source: 'New Castle County Land Use', link: 'https://www.nccde.org/174/Land-Use',
+    };
+  }).filter(p => p.stage !== 'Expired' && (p.major || (p.units || 0) >= 10 || (p.sqft || 0) >= 5000 || p.kind === 'shops'));
+}
+async function projectsHandler(ctx) {
+  const tried = []; let items = [];
+  const [a, b] = await Promise.allSettled([plusProjects(ctx), countyProjects(ctx)]);
+  if (a.status === 'fulfilled') items.push(...a.value); else tried.push(String(a.reason?.message || 'plus'));
+  if (b.status === 'fulfilled') items.push(...b.value); else tried.push(String(b.reason?.message || 'ncc'));
+  if (!items.length && tried.length) return json({ error: 'source_unavailable', tried }, 502, 60);
+  const rank = { shops: 0, mixed: 1, homes: 2, industrial: 3, community: 4, other: 5 };
+  items.sort((x, y) => (y.date || 0) - (x.date || 0) || rank[x.kind] - rank[y.kind]);
+  return json({ count: items.length, items: items.slice(0, 60), checked: Date.now(), tried }, 200, 3600);
+}
+
 // ---------- GET /api/sources — diagnostics: what each Phase 2 upstream actually returns ----------
 async function sourcesHandler() {
   const probe = async (name, url, headers = {}) => {
@@ -475,6 +549,7 @@ export default {
       if (pathname === '/api/roads') return await roadsHandler(c);
       if (pathname === '/api/business') return await businessHandler(c);
       if (pathname === '/api/urgent') return await urgentHandler(c);
+      if (pathname === '/api/projects') return await projectsHandler(c);
       if (pathname === '/api/sources') return await sourcesHandler();
       if (pathname === '/api/check') return json({ tomtom_key: !!env.TOMTOM_API_KEY, opensky_id: !!env.OPENSKY_CLIENT_ID, opensky_secret: !!env.OPENSKY_CLIENT_SECRET, socrata_token: !!env.SOCRATA_APP_TOKEN }, 200, 0);
     } catch (e) {
