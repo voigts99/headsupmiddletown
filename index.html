@@ -318,7 +318,7 @@ function findPass(tle){
       if(vis) cur.vis.push({t,az:look.azimuth,el});
       cur.max=Math.max(cur.max,el);
     } else if(cur){
-      if(cur.vis.length>=3&&cur.vis[cur.vis.length-1].t>Date.now()) return cur;
+      if(cur.vis.length>=6&&Math.max(...cur.vis.map(v=>v.el))>=25&&cur.vis[cur.vis.length-1].t>Date.now()) return cur;
       cur=null;
     }
   }
@@ -342,7 +342,7 @@ async function renderSky(){
     const a=pass.vis[0], b=pass.vis[pass.vis.length-1], mins=Math.max(1,Math.round((b.t-a.t)/6e4));
     const w=whenWord(a.t);
     $('skyh').textContent=`The space station flies over ${w} at ${fmtTime(a.t)}.`;
-    $('skysub').textContent=`Look ${DIRWORD[dir(a.az)]}, it crosses toward the ${DIRWORD[dir(b.az)]}. ${pass.max>40?'Very bright':pass.max<25?'Low in the sky but easy to spot':'Bright'}, steady, no blinking. About ${mins} minute${mins>1?'s':''}.`;
+    $('skysub').textContent=`Look ${DIRWORD[dir(a.az)]}${dir(a.az)!==dir(b.az)?`, it crosses toward the ${DIRWORD[dir(b.az)]}`:''}. ${pass.max>50?'Very bright, nearly overhead':'Bright'}, steady, no blinking. About ${mins} minute${mins>1?'s':''}.`;
   }catch(e){
     $('skyh').textContent=`${m.name} tonight.`;
     $('skysub').textContent=m.lit>60?'Plenty of moonlight if you\'re out late.':m.lit<15?'Dark skies, good night for stars.':'Look up after sunset.';
