@@ -210,6 +210,11 @@ function lists(){
 }
 
 // ---------- Headline in a neighbor's voice ----------
+function shortPlace(w){
+  w=String(w||'').split(',')[0].replace(/^\s*\d+[-\d]*\s+/,'').replace(/^(on|at)\s+/i,'').trim();
+  return w&&w.length<=32&&!/side of|feet|north of|south of/i.test(w)?w:'';
+}
+const clip=(s,n)=>{s=String(s||'');return s.length<=n?s:s.slice(0,s.lastIndexOf(' ',n)).replace(/[,;:\s]+$/,'')+'…'};
 function partOfDay(){const h=new Date().getHours();return h<5?'night':h<12?'morning':h<17?'afternoon':h<21?'evening':'night'}
 function renderHero(L){
   const t=data.train, warnings=L.warn.filter(x=>/Warning/.test(x.event||''));
@@ -223,10 +228,10 @@ function renderHero(L){
   if(t) bits.push(t.status==='clear'?'the train crossing\'s clear':t.status==='slow'?'Broad St is moving slow by the tracks':'Broad St is backed up at the tracks');
   if(data.roads) bits.push(L.closures.length?`${word(L.closures.length).toLowerCase()} road${L.closures.length>1?'s are':' is'} closed nearby`:'no roads closed nearby');
   const fresh=L.shops[0];
-  let sub=bits.length?bits.join(', ').replace(/^./,c=>c.toUpperCase()):'';
-  if(fresh) sub+=(sub?', and ':'')+`${fresh.title} is ${/review|plus/i.test(fresh.stage||'')?'in review':'in the works'}${fresh.where?' on '+fresh.where.replace(/^(on|at)\s+/i,''):''}`;
+  let sub=bits.length?bits.join(' and ').replace(/^./,c=>c.toUpperCase())+'.':'';
+  if(fresh){const pl=shortPlace(fresh.where);sub+=(sub?' ':'')+`${fresh.title} is ${/review|plus/i.test(fresh.stage||'')?'in review':'in the works'}${pl?' on '+pl:''}.`}
   $('headline').textContent=head;
-  $('subline').textContent=sub?sub+'.':'';
+  $('subline').textContent=sub;
 }
 
 // ---------- Tiles ----------
@@ -236,7 +241,7 @@ function tiles(L){
     train:t?{q:'Is the train blocking?',cls:{clear:'ok',slow:'warn',likely_blocked:'bad',closed:'bad'}[t.status]||'',a:{clear:'Nope.',slow:'Maybe.',likely_blocked:'Probably!',closed:'Road closed.'}[t.status]||'Not sure.',s:{clear:`Broad St moving at ${t.currentSpeed} mph`,slow:`Broad St slow: ${t.currentSpeed} mph (usually ${t.freeFlowSpeed})`,likely_blocked:`Broad St crawling: ${t.currentSpeed} mph`,closed:'Broad St closed at the tracks'}[t.status]||''}:{q:'Is the train blocking?',a:'…'},
     traffic:r?{q:'How\'s traffic?',cls:L.crashes.length?'bad':L.jams.length?'warn':'ok',a:L.crashes.length?`${word(L.crashes.length)} crash${L.crashes.length>1?'es':''}.`:L.jams.length?'Some delays.':'Smooth.',s:L.crashes.length||L.jams.length?'Tap to see where':'No reported delays'}:{q:'How\'s traffic?',a:'…'},
     weather:a?{q:'Any weather alerts?',cls:L.warn.length?(L.warn.some(x=>/Warning/.test(x.event))?'bad':'warn'):'ok',a:L.warn.length?(L.warn.length===1?'One.':word(L.warn.length)+'.'):'None.',s:L.warn.length?L.warn[0].event:'All calm out there'}:{q:'Any weather alerts?',a:'…'},
-    roads:r?{q:'Any roads closed?',cls:L.closures.length?'warn':'ok',a:L.closures.length?word(L.closures.length)+'.':'Nope.',s:L.closures.length?L.closures.slice(0,2).map(x=>cap(x.where).split(/ (?:at|between|from) /i)[0]).join(' · '):'Everything\'s open nearby'}:{q:'Any roads closed?',a:'…'},
+    roads:r?{q:'Any roads closed?',cls:L.closures.length?'warn':'ok',a:L.closures.length?word(L.closures.length)+'.':'Nope.',s:L.closures.length?L.closures.slice(0,2).map(x=>cap(x.where).split(/ (?:at|between|from) /i)[0].replace(/\s*(north|south|east|west)bound(\/(north|south|east|west)bound)?/ig,'').trim()).join(' · '):'Everything\'s open nearby'}:{q:'Any roads closed?',a:'…'},
   };
   const newIn={train:false,traffic:L.crashes.some(x=>isNew(x.time)),weather:L.warn.some(x=>isNew(Date.parse(x.onset))),roads:L.closures.some(x=>isNew(x.time))};
   return {T,newIn};
@@ -269,7 +274,7 @@ function renderGoing(L){
   if(!data.projects){return}
   const sum=x=>x.units?`${x.units.toLocaleString()} homes`:x.sqft?`${x.sqft.toLocaleString()} sq ft`:'';
   const li=[];
-  for(const x of L.shops.slice(0,2)) li.push(`<li><span class="bul" aria-hidden="true"></span><span>${isNew(x.date)?'<span class="newdot"></span>':''}<b>${esc(x.title)}</b>${x.what?' · '+esc(x.what):''}<small>${esc([x.where,x.stage].filter(Boolean).join(' · '))}</small></span></li>`);
+  for(const x of L.shops.slice(0,2)) li.push(`<li><span class="bul" aria-hidden="true"></span><span>${isNew(x.date)?'<span class="newdot"></span>':''}<b>${esc(x.title)}</b>${x.what?' · '+esc(clip(x.what,70)):''}<small>${esc([shortPlace(x.where),x.stage].filter(Boolean).join(' · '))}</small></span></li>`);
   if(L.homesTotal) li.push(`<li><span class="bul home" aria-hidden="true"></span><span><b>${L.homesTotal.toLocaleString()} new homes</b> planned nearby<small>${L.hoods[0]?`Biggest: ${esc(L.hoods[0].title)}, ${esc(sum(L.hoods[0]))}`:''}</small></span></li>`);
   $('going').innerHTML=li.join('')||'<li>Nothing new filed lately.</li>';
   if(goingOpen){
@@ -293,7 +298,7 @@ function moon(){
   const name=age<.03||age>.97?'New moon':age<.22?'Waxing crescent':age<.28?'First quarter':age<.47?'Waxing gibbous':age<.53?'Full moon':age<.72?'Waning gibbous':age<.78?'Last quarter':'Waning crescent';
   return {name,lit};
 }
-function loadSat(){return new Promise((ok,no)=>{if(window.satellite)return ok();const s=document.createElement('script');s.src='https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js';s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
+function loadSat(){return new Promise((ok,no)=>{if(window.satellite)return ok();const s=document.createElement('script');s.src='satellite.min.js';s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
 function findPass(tle){
   const S=window.satellite, rec=S.twoline2satrec(tle.line1,tle.line2);
   const gd={latitude:OBS.lat*D2R,longitude:OBS.lon*D2R,height:OBS.alt}, obsEcf=S.geodeticToEcf(gd);
@@ -337,7 +342,7 @@ async function renderSky(){
     const a=pass.vis[0], b=pass.vis[pass.vis.length-1], mins=Math.max(1,Math.round((b.t-a.t)/6e4));
     const w=whenWord(a.t);
     $('skyh').textContent=`The space station flies over ${w} at ${fmtTime(a.t)}.`;
-    $('skysub').textContent=`Look ${DIRWORD[dir(a.az)]}, it crosses toward the ${DIRWORD[dir(b.az)]}. ${pass.max>40?'Very bright':'Bright'}, steady, no blinking. About ${mins} minute${mins>1?'s':''}.`;
+    $('skysub').textContent=`Look ${DIRWORD[dir(a.az)]}, it crosses toward the ${DIRWORD[dir(b.az)]}. ${pass.max>40?'Very bright':pass.max<25?'Low in the sky but easy to spot':'Bright'}, steady, no blinking. About ${mins} minute${mins>1?'s':''}.`;
   }catch(e){
     $('skyh').textContent=`${m.name} tonight.`;
     $('skysub').textContent=m.lit>60?'Plenty of moonlight if you\'re out late.':m.lit<15?'Dark skies, good night for stars.':'Look up after sunset.';
