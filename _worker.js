@@ -551,7 +551,8 @@ async function issHandler(ctx) {
 
 // ---------- GET /api/feed — local news + local high school sports headlines (headline + link only) ----------
 const FEEDS = [
-  { id: 'dsp', name: 'Delaware State Police', url: 'https://dsp.delaware.gov/feed/' },
+  { id: 'dsp', name: 'Delaware State Police', url: 'https://dsp.delaware.gov/feed/', near: true },
+  { id: 'nccpd', name: 'New Castle County Police', url: 'https://nccpdnews.com/feed/', near: true },
   { id: 'live', name: 'Delaware LIVE', url: 'https://delawarelive.com/feed/' },
   { id: 'spot', name: 'Spotlight Delaware', url: 'https://spotlightdelaware.org/feed/' },
   { id: 'state', name: 'Delaware.gov News', url: 'https://news.delaware.gov/feed/' },
@@ -590,9 +591,9 @@ async function feedHandler(ctx) {
         const hay = title + ' ' + cats + ' ' + body;
         const isSport = SPORT.test(title + ' ' + cats);
         if (isSport && !SCHOOLS.test(title)) continue; // sports only when a local school is in the headline
-        if (!f.local && !isSport && !LOCAL.test(hay)) continue;
+        if (!f.local && !isSport && !(f.near ? NEAR : LOCAL).test(hay)) continue;
         const sports = isSport;
-        items.push({ id: link, title, link, time, source: f.name, kind: sports ? 'sports' : (f.id === 'dsp' || /police|arrest|troopers?|shooting|stabbing/i.test(title) ? 'police' : 'news') });
+        items.push({ id: link, title, link, time, source: f.name, kind: sports ? 'sports' : (f.near || /police|arrest|troopers?|shooting|stabbing/i.test(title) ? 'police' : 'news') });
         n++;
       }
       status[f.id] = n;
