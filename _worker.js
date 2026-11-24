@@ -535,6 +535,20 @@ async function projectsHandler(ctx) {
 }
 
 // ---------- GET /api/sources — diagnostics: what each Phase 2 upstream actually returns ----------
+// GET /api/iss — latest orbit data (TLE) for the International Space Station, from CelesTrak.
+// The browser works out tonight's visible passes over Middletown from it.
+async function issHandler(ctx) {
+  const day = new Date().toISOString().slice(0, 10);
+  const res = await cachedFetch(ctx, 'https://cache.headsup/iss/' + day,
+    'https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE',
+    { headers: { 'user-agent': 'HeadsUpMiddletown/1.0' } }, 43200);
+  if (!res.ok) return json({ error: 'iss_unavailable', status: res.status }, 502, 300);
+  const lines = (await res.text()).split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const i = lines.findIndex(l => l.startsWith('1 '));
+  if (i < 0 || !lines[i + 1]?.startsWith('2 ')) return json({ error: 'iss_bad_data' }, 502, 300);
+  return json({ name: 'ISS', line1: lines[i], line2: lines[i + 1] }, 200, 3600);
+}
+
 async function sourcesHandler() {
   const probe = async (name, url, headers = {}) => {
     try {
@@ -565,6 +579,7 @@ export default {
       if (pathname === '/api/business') return await businessHandler(c);
       if (pathname === '/api/urgent') return await urgentHandler(c);
       if (pathname === '/api/projects') return await projectsHandler(c);
+      if (pathname === '/api/iss') return await issHandler(c);
       if (pathname === '/api/sources') return await sourcesHandler();
       if (pathname === '/api/check') return json({ tomtom_key: !!env.TOMTOM_API_KEY, opensky_id: !!env.OPENSKY_CLIENT_ID, opensky_secret: !!env.OPENSKY_CLIENT_SECRET, socrata_token: !!env.SOCRATA_APP_TOKEN }, 200, 0);
     } catch (e) {
