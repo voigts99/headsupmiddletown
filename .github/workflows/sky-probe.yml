@@ -1,0 +1,24 @@
+name: sky-probe
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/sky-probe.yml']
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query free flight feeds near Middletown, DE
+        run: |
+          for u in \
+            "https://api.adsb.lol/v2/point/39.449/-75.716/40" \
+            "https://api.adsb.lol/v2/mil" \
+            "https://api.airplanes.live/v2/point/39.449/-75.716/40" \
+            "https://api.airplanes.live/v2/mil"; do
+            code=$(curl -s -m 20 -A "HeadsUpMiddletown/0.3 (github.com/voigts99/headsupmiddletown)" -o out.json -w "%{http_code}" "$u")
+            echo "== $u -> HTTP $code"
+            if [ "$code" = "200" ]; then
+              jq -r '"aircraft: \(.ac|length)"' out.json
+              # military within ~60 nm of Middletown
+              jq -r '[.ac[] | select(.lat!=null) | select((.lat-39.449|fabs)<1 and (.lon+75.716|fabs)<1.3)] | "nearby in this list: \(length)", (.[:8][] | "  \(.flight // "-") \(.t // "-") \(.desc // "") alt=\(.alt_baro // "-") dbFlags=\(.dbFlags // 0)")' out.json
+            fi
+          done
