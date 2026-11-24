@@ -588,8 +588,10 @@ async function feedHandler(ctx) {
         const cats = [...m[1].matchAll(/<category[^>]*>([\s\S]*?)<\/category>/g)].map(c => feedText(c[1])).join(' ');
         const body = get('description').slice(0, 600);
         const hay = title + ' ' + cats + ' ' + body;
-        if (!f.local && !LOCAL.test(hay)) continue;
-        const sports = SPORT.test(title + ' ' + cats) && SCHOOLS.test(hay);
+        const isSport = SPORT.test(title + ' ' + cats);
+        if (isSport && !SCHOOLS.test(title)) continue; // sports only when a local school is in the headline
+        if (!f.local && !isSport && !LOCAL.test(hay)) continue;
+        const sports = isSport;
         items.push({ id: link, title, link, time, source: f.name, kind: sports ? 'sports' : (f.id === 'dsp' || /police|arrest|troopers?|shooting|stabbing/i.test(title) ? 'police' : 'news') });
         n++;
       }
