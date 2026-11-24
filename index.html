@@ -241,7 +241,7 @@ function renderHero(L){
 // ---------- School (Appoquinimink 2026-27 bell schedule) ----------
 const BELLS=[ // [label, morning bell, afternoon bell] in minutes after midnight
   ['Middle schools',7*60+30,14*60+10],['High schools',8*60+20,15*60],['Elementary',9*60+10,15*60+50]];
-const NO_SCHOOL=[['2026-11-26','2026-11-27'],['2026-12-23','2027-01-01']]; // confirmed breaks only
+const NO_SCHOOL=[['2026-11-26','2026-11-27'],['2026-12-23','2027-01-01'],['2027-03-25','2027-04-05']]; // confirmed breaks only
 const hm=m=>{const h=Math.floor(m/60),mm=m%60;return `${(h+11)%12+1}:${String(mm).padStart(2,'0')}${h<12?'am':'pm'}`};
 function schoolNow(){
   const d=new Date(), iso=d.toLocaleDateString('en-CA'), dow=d.getDay(), m=d.getHours()*60+d.getMinutes();
@@ -378,7 +378,7 @@ async function renderSky(){
 }
 
 // ---------- Coming up ----------
-const NEXT=[['2026-11-26','Nov 26–27','Thanksgiving: no school'],['2026-12-07','Dec 7','Town council meeting, 7:30 PM'],['2026-12-23','Dec 23','Winter break starts'],['2027-01-04','Jan 4','Schools reopen'],['2027-03-26','Mar 26','Spring break starts']];
+const NEXT=[['2026-11-26','Nov 26–27','Thanksgiving: no school'],['2026-12-07','Dec 7','Town council meeting, 7:30 PM'],['2026-12-23','Dec 23','Winter break starts'],['2027-01-04','Jan 4','Schools reopen'],['2027-03-25','Mar 25–Apr 5','Spring break: no school'],['2027-04-06','Apr 6','Schools reopen'],['2027-06-11','Jun 11','Last day of school (K–11)']];
 function renderNext(){
   const d=new Date().toISOString().slice(0,10), n=NEXT.filter(x=>x[0]>=d).slice(0,3);
   $('next').innerHTML=n.length?`<h2>Coming up</h2><ul>${n.map(x=>`<li><b>${x[1]}</b><span>${x[2]}</span></li>`).join('')}</ul>`:'';
