@@ -46,6 +46,10 @@ header{display:flex;flex-direction:column;align-items:center;gap:2px}
 .board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .tile{position:relative;text-align:left;background:var(--card);border:2px solid var(--navy);border-radius:14px;padding:12px;cursor:pointer;box-shadow:3px 3px 0 var(--gold);min-height:112px}
 .tile[aria-expanded=true]{box-shadow:3px 3px 0 var(--rust);transform:translate(1px,1px)}
+.tile.wide{grid-column:1/-1;min-height:0}
+.sched{width:100%;border-collapse:collapse;font-size:14px;margin-top:4px}
+.sched th,.sched td{text-align:left;padding:6px 4px;border-top:1px solid var(--line)}
+.sched th{font-size:12px;color:var(--dim);font-weight:600;border-top:0}
 .tile .q{display:block;font-size:13px;color:var(--dim);line-height:1.3}
 .tile .a{display:block;font-size:29px;line-height:1.1;margin-top:5px;color:var(--navy)}
 .tile .s{display:block;font-size:12px;color:var(--dim);margin-top:5px;line-height:1.35}
@@ -234,6 +238,24 @@ function renderHero(L){
   $('subline').textContent=sub;
 }
 
+// ---------- School (Appoquinimink 2026-27 bell schedule) ----------
+const BELLS=[ // [label, morning bell, afternoon bell] in minutes after midnight
+  ['Middle schools',7*60+30,14*60+10],['High schools',8*60+20,15*60],['Elementary',9*60+10,15*60+50]];
+const NO_SCHOOL=[['2026-11-26','2026-11-27'],['2026-12-23','2027-01-01']]; // confirmed breaks only
+const hm=m=>{const h=Math.floor(m/60),mm=m%60;return `${(h+11)%12+1}:${String(mm).padStart(2,'0')}${h<12?'am':'pm'}`};
+function schoolNow(){
+  const d=new Date(), iso=d.toLocaleDateString('en-CA'), dow=d.getDay(), m=d.getHours()*60+d.getMinutes();
+  if(dow===0||dow===6) return {cls:'ok',a:'No school.',s:'Weekend, no buses'};
+  if(NO_SCHOOL.some(([a,b])=>iso>=a&&iso<=b)) return {cls:'ok',a:'No school.',s:'District break today'};
+  if(iso<'2026-08-31'||iso>'2027-06-11') return {cls:'ok',a:'Summer.',s:'No buses running'};
+  for(const [n,am,pm] of BELLS){
+    if(m>=am-20&&m<=am+5) return {cls:'warn',a:'Drop-off.',s:`${n}: bell at ${hm(am)}, buses on the roads`};
+    if(m>=pm-5&&m<=pm+20) return {cls:'warn',a:'Dismissal.',s:`${n} let out at ${hm(pm)}, buses on the roads`};
+  }
+  const ev=BELLS.flatMap(([n,am,pm])=>[[am-20,`${n} drop-off ${hm(am-15)}`],[pm,`${n} dismissal ${hm(pm)}`]]).sort((a,b)=>a[0]-b[0]).find(e=>e[0]>m);
+  return {cls:'ok',a:'Quiet.',s:ev?`Next: ${ev[1]}`:'Done for the day'};
+}
+
 // ---------- Tiles ----------
 function tiles(L){
   const t=data.train, r=data.roads, a=data.alerts;
@@ -241,9 +263,10 @@ function tiles(L){
     train:t?{q:'Is the train blocking?',cls:{clear:'ok',slow:'warn',likely_blocked:'bad',closed:'bad'}[t.status]||'',a:{clear:'Nope.',slow:'Maybe.',likely_blocked:'Probably!',closed:'Road closed.'}[t.status]||'Not sure.',s:{clear:`Broad St moving at ${t.currentSpeed} mph`,slow:`Broad St slow: ${t.currentSpeed} mph (usually ${t.freeFlowSpeed})`,likely_blocked:`Broad St crawling: ${t.currentSpeed} mph`,closed:'Broad St closed at the tracks'}[t.status]||''}:{q:'Is the train blocking?',a:'…'},
     traffic:r?{q:'How\'s traffic?',cls:L.crashes.length?'bad':L.jams.length?'warn':'ok',a:L.crashes.length?`${word(L.crashes.length)} crash${L.crashes.length>1?'es':''}.`:L.jams.length?'Some delays.':'Smooth.',s:L.crashes.length||L.jams.length?'Tap to see where':'No reported delays'}:{q:'How\'s traffic?',a:'…'},
     weather:a?{q:'Any weather alerts?',cls:L.warn.length?(L.warn.some(x=>/Warning/.test(x.event))?'bad':'warn'):'ok',a:L.warn.length?(L.warn.length===1?'One.':word(L.warn.length)+'.'):'None.',s:L.warn.length?L.warn[0].event:'All calm out there'}:{q:'Any weather alerts?',a:'…'},
+    school:{q:'School buses out?',...schoolNow()},
     roads:r?{q:'Any roads closed?',cls:L.closures.length?'warn':'ok',a:L.closures.length?word(L.closures.length)+'.':'Nope.',s:L.closures.length?L.closures.slice(0,2).map(x=>cap(x.where).split(/ (?:at|between|from) /i)[0].replace(/\s*(north|south|east|west)bound(\/(north|south|east|west)bound)?/ig,'').trim()).join(' · '):'Everything\'s open nearby'}:{q:'Any roads closed?',a:'…'},
   };
-  const newIn={train:false,traffic:L.crashes.some(x=>isNew(x.time)),weather:L.warn.some(x=>isNew(Date.parse(x.onset))),roads:L.closures.some(x=>isNew(x.time))};
+  const newIn={school:false,train:false,traffic:L.crashes.some(x=>isNew(x.time)),weather:L.warn.some(x=>isNew(Date.parse(x.onset))),roads:L.closures.some(x=>isNew(x.time))};
   return {T,newIn};
 }
 function detail(key,L){
@@ -254,16 +277,20 @@ function detail(key,L){
     <li>Slow doesn't always mean a train. A backup or a red light looks the same.<small>Town code: a train may not block a Middletown street for more than 5 minutes.</small></li></ul><div class="src">Road speed from TomTom</div>`:'';
   if(key==='traffic'){const a=[...L.crashes,...L.jams];return `<h3>${a.length?'Reported delays':'Traffic is moving'}</h3>${a.length?`<ul>${lim(a).map(x=>`<li>${esc(cap(x.where))}<small>${esc(x.type)} · ${ago(x.time)}</small></li>`).join('')}</ul>${more(a)}`:'<ul><li>No crashes or official delays reported near Middletown.<small>Open the map for live red, yellow and green traffic.</small></li></ul>'}<div class="src">DelDOT advisories · live colors on the map</div>`;}
   if(key==='weather') return L.warn.length?`<h3>Weather alerts</h3><ul>${L.warn.map(x=>`<li>${esc(x.headline||x.event)}<small>${x.ends?'Until '+esc(new Date(x.ends).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'})):''}</small></li>`).join('')}</ul><div class="src">National Weather Service</div>`:'<h3>No weather alerts</h3><ul><li>Nothing active for Middletown right now.</li></ul><div class="src">National Weather Service</div>';
+  if(key==='school') return `<h3>School bell times, 2026–27</h3><table class="sched"><tr><th>Schools</th><th>Morning bell</th><th>Let out</th></tr>
+    <tr><td>Middle schools</td><td>7:30am</td><td>2:10pm</td></tr><tr><td>High schools</td><td>8:20am</td><td>3:00pm</td></tr>
+    <tr><td>Elementary &amp; ECC</td><td>9:10am</td><td>3:50pm</td></tr><tr><td>Preschool AM / PM</td><td>9:10am / 12:55pm</td><td>11:40am / 3:10pm</td></tr></table>
+    <div class="src">Buses arrive about 15 minutes before the bell and leave about 6 minutes after. Appoquinimink School District bell schedule. Snow delays and early dismissals not shown yet.</div>`;
   if(key==='roads') return L.closures.length?`<h3>Road closures nearby</h3><ul>${lim(L.closures).map(x=>`<li>${esc(cap(x.where))}<small>${esc(x.type)} · since ${fmtDay(x.time)} · <a href="https://deldot.gov/map/?lat=${x.lat}&lon=${x.lon}" target="_blank" rel="noopener">DelDOT map</a></small></li>`).join('')}</ul>${more(L.closures)}<div class="src">DelDOT</div>`:'<h3>No closures nearby</h3><div class="src">DelDOT</div>';
   return '';
 }
 function renderBoard(L){
-  const {T,newIn}=tiles(L), keys=['train','traffic','weather','roads'];
+  const {T,newIn}=tiles(L), keys=['train','traffic','weather','roads','school'];
   let h='';
   keys.forEach((k,i)=>{
     const x=T[k];
-    h+=`<button class="tile ${x.cls||''}" data-k="${k}" aria-expanded="${open===k}"><span class="q">${esc(x.q)}</span><span class="a slab">${esc(x.a)}</span><span class="s">${esc(x.s||'')}</span>${newIn[k]?'<i class="nd" aria-label="new"></i>':''}</button>`;
-    if(open&&i%2===1&&Math.floor(keys.indexOf(open)/2)===Math.floor(i/2)) h+=`<div class="detail">${detail(open,L)}</div>`;
+    h+=`<button class="tile ${x.cls||''}${k==='school'?' wide':''}" data-k="${k}" aria-expanded="${open===k}"><span class="q">${esc(x.q)}</span><span class="a slab">${esc(x.a)}</span><span class="s">${esc(x.s||'')}</span>${newIn[k]?'<i class="nd" aria-label="new"></i>':''}</button>`;
+    if(open&&((k==='school'&&open==='school')||(i<4&&i%2===1&&open!=='school'&&Math.floor(keys.indexOf(open)/2)===Math.floor(i/2)))) h+=`<div class="detail">${detail(open,L)}</div>`;
   });
   $('board').innerHTML=h;
   return newIn;
