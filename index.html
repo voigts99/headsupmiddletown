@@ -445,7 +445,7 @@ function renderFeed(L){
     const fresh=!first&&!seenPosts.has(x.id);
     const txt=x.link?`<a href="${esc(x.link)}" target="_blank" rel="noopener">${esc(x.title)}</a>`:esc(x.title);
     return `<li class="post${fresh?' fresh':''}"><span class="av ${x.kind}" aria-hidden="true">${x.icon||'📍'}</span><div class="pb"><div class="pm"><b>${esc(x.source)}</b> · ${x.live?'<span class="live">LIVE</span>':(isNew(x.time)?'<span class="newdot"></span>':'')+ago(x.time)}</div><div class="pt">${txt}</div></div></li>`;
-  }).join(''):`<li class="post"><div class="pb pm">Nothing here in the last two weeks.</div></li>`;
+  }).join(''):`<li class="post"><div class="pb pm">Nothing here in the last month.</div></li>`;
   for(const x of all) seenPosts.add(x.id);
   $('feedmore').hidden=shown.length<=6;
   $('feedmore').textContent=feedAll?'Show less':`Show more (${Math.min(shown.length,30)})`;

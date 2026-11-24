@@ -556,6 +556,12 @@ const FEEDS = [
   { id: 'spot', name: 'Spotlight Delaware', url: 'https://spotlightdelaware.org/feed/' },
   { id: 'state', name: 'Delaware.gov News', url: 'https://news.delaware.gov/feed/' },
   { id: 'dfn', name: 'Delaware Free News', url: 'https://delawarefreenews.org/feed/' },
+  { id: 'live-sports', name: 'Delaware LIVE', url: 'https://delawarelive.com/category/sports/feed/' },
+  { id: 'live-mtown', name: 'Delaware LIVE', url: 'https://delawarelive.com/tag/middletown/feed/', local: true },
+  { id: 'live-appo', name: 'Delaware LIVE', url: 'https://delawarelive.com/tag/appoquinimink/feed/', local: true },
+  { id: 'live-odessa', name: 'Delaware LIVE', url: 'https://delawarelive.com/tag/odessa/feed/', local: true },
+  { id: 'spot-mtown', name: 'Spotlight Delaware', url: 'https://spotlightdelaware.org/tag/middletown/feed/', local: true },
+  { id: 'state-mtown', name: 'Delaware.gov News', url: 'https://news.delaware.gov/tag/middletown/feed/', local: true },
 ];
 // Only stories about Middletown and the towns right around it.
 const LOCAL = /\b(middletown|odessa|townsend|appoquinimink|st\.? georges|port penn|warwick|boyds corner|summit bridge|silver lake|cantwell|bunker hill|19709|19734|mot charter|redding|everett meredith)\b/i;
@@ -578,13 +584,13 @@ async function feedHandler(ctx) {
       for (const m of xml.matchAll(/<item[\s>]([\s\S]*?)<\/item>/g)) {
         const get = tag => { const x = m[1].match(new RegExp('<' + tag + '[^>]*>([\\s\\S]*?)</' + tag + '>')); return x ? feedText(x[1]) : ''; };
         const title = get('title'), link = get('link'), time = Date.parse(get('pubDate'));
-        if (!title || !/^https:\/\//.test(link) || !time || Date.now() - time > 14 * 864e5 || SKIP_FEED.test(title)) continue;
+        if (!title || !/^https:\/\//.test(link) || !time || Date.now() - time > 30 * 864e5 || SKIP_FEED.test(title)) continue;
         const cats = [...m[1].matchAll(/<category[^>]*>([\s\S]*?)<\/category>/g)].map(c => feedText(c[1])).join(' ');
         const body = get('description').slice(0, 600);
         const hay = title + ' ' + cats + ' ' + body;
-        if (!LOCAL.test(hay)) continue;
+        if (!f.local && !LOCAL.test(hay)) continue;
         const sports = SPORT.test(title + ' ' + cats) && SCHOOLS.test(hay);
-        items.push({ id: link, title, link, time, source: f.name, kind: sports ? 'sports' : (f.id === 'dsp' ? 'police' : 'news') });
+        items.push({ id: link, title, link, time, source: f.name, kind: sports ? 'sports' : (f.id === 'dsp' || /police|arrest|troopers?|shooting|stabbing/i.test(title) ? 'police' : 'news') });
         n++;
       }
       status[f.id] = n;
