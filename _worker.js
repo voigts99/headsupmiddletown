@@ -549,6 +549,52 @@ async function issHandler(ctx) {
   return json({ name: 'ISS', line1: lines[i], line2: lines[i + 1] }, 200, 3600);
 }
 
+// ---------- GET /api/feed — local news + local high school sports headlines (headline + link only) ----------
+const FEEDS = [
+  { id: 'dsp', name: 'Delaware State Police', url: 'https://dsp.delaware.gov/feed/' },
+  { id: 'live', name: 'Delaware LIVE', url: 'https://delawarelive.com/feed/' },
+  { id: 'spot', name: 'Spotlight Delaware', url: 'https://spotlightdelaware.org/feed/' },
+  { id: 'state', name: 'Delaware.gov News', url: 'https://news.delaware.gov/feed/' },
+  { id: 'dfn', name: 'Delaware Free News', url: 'https://delawarefreenews.org/feed/' },
+];
+// Only stories about Middletown and the towns right around it.
+const LOCAL = /\b(middletown|odessa|townsend|appoquinimink|st\.? georges|port penn|warwick|boyds corner|summit bridge|silver lake|cantwell|bunker hill|19709|19734|mot charter|redding|everett meredith)\b/i;
+const SCHOOLS = /\b(appoquinimink|middletown|odessa|st\.? georges|mot charter)\b/i;
+const SPORT = /\b(football|soccer|basketball|baseball|softball|lacrosse|field hockey|volleyball|wrestling|track|cross country|swimming|tennis|golf|playoff|championship|state title|semifinal|quarterfinal|jaguars|cavaliers|ducks|hawks|diaa)\b/i;
+const SKIP_FEED = /sex offender|obituar|recruit|hiring|sponsored|advertis/i;
+function feedText(x) {
+  return String(x || '').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/<[^>]+>/g, ' ')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n)).replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)))
+    .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+}
+async function feedHandler(ctx) {
+  const items = [], status = {};
+  await Promise.all(FEEDS.map(async f => {
+    try {
+      const r = await cachedFetch(ctx, 'https://cache.local/feed/' + f.id, f.url, { headers: { 'user-agent': UA2, accept: 'application/rss+xml, application/xml, text/xml' } }, 600);
+      if (!r.ok) { status[f.id] = r.status; return; }
+      const xml = await r.text(); let n = 0;
+      for (const m of xml.matchAll(/<item[\s>]([\s\S]*?)<\/item>/g)) {
+        const get = tag => { const x = m[1].match(new RegExp('<' + tag + '[^>]*>([\\s\\S]*?)</' + tag + '>')); return x ? feedText(x[1]) : ''; };
+        const title = get('title'), link = get('link'), time = Date.parse(get('pubDate'));
+        if (!title || !/^https:\/\//.test(link) || !time || Date.now() - time > 14 * 864e5 || SKIP_FEED.test(title)) continue;
+        const cats = [...m[1].matchAll(/<category[^>]*>([\s\S]*?)<\/category>/g)].map(c => feedText(c[1])).join(' ');
+        const body = get('description').slice(0, 600);
+        const hay = title + ' ' + cats + ' ' + body;
+        if (!LOCAL.test(hay)) continue;
+        const sports = SPORT.test(title + ' ' + cats) && SCHOOLS.test(hay);
+        items.push({ id: link, title, link, time, source: f.name, kind: sports ? 'sports' : (f.id === 'dsp' ? 'police' : 'news') });
+        n++;
+      }
+      status[f.id] = n;
+    } catch (e) { status[f.id] = 'error'; }
+  }));
+  const seen = new Set();
+  const out = items.sort((a, b) => b.time - a.time).filter(x => { const k = x.title.toLowerCase().slice(0, 60); if (seen.has(k)) return false; seen.add(k); return true; });
+  return json({ count: out.length, items: out.slice(0, 30), checked: Date.now(), status }, 200, 300);
+}
+
 async function sourcesHandler() {
   const probe = async (name, url, headers = {}) => {
     try {
@@ -580,6 +626,7 @@ export default {
       if (pathname === '/api/urgent') return await urgentHandler(c);
       if (pathname === '/api/projects') return await projectsHandler(c);
       if (pathname === '/api/iss') return await issHandler(c);
+      if (pathname === '/api/feed') return await feedHandler(c);
       if (pathname === '/api/sources') return await sourcesHandler();
       if (pathname === '/api/check') return json({ tomtom_key: !!env.TOMTOM_API_KEY, opensky_id: !!env.OPENSKY_CLIENT_ID, opensky_secret: !!env.OPENSKY_CLIENT_SECRET, socrata_token: !!env.SOCRATA_APP_TOKEN }, 200, 0);
     } catch (e) {
